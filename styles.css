@@ -6,3 +6,19 @@
 .opponent-bench{border-top:3px solid #252733}.opponent-bench .bench-avatar{background-color:#252733;color:#ffbd35}.pitch-player.rival .player-token{background-color:#20232b;border-color:#ffbd35}.pitch-player.highlighted:before{content:"";position:absolute;width:68px;height:68px;left:-5px;top:-11px;border-radius:50%;background:#f6c34466;border:2px solid #f6c344;z-index:-1;animation:pulse 1.8s infinite}@keyframes pulse{50%{transform:scale(1.08);opacity:.72}}#arrows path{marker-end:url(#arrowHead)!important}#graphics circle{fill:#f6c34422;stroke:#f6c344;stroke-width:8}#graphics path{marker-end:none!important}.pitch-text{position:absolute;z-index:8;transform:translate(-50%,-50%);background:#fff;color:#201650;padding:5px 9px;border-radius:5px;font-weight:800;font-size:11px;box-shadow:0 2px 6px #0005;cursor:pointer;max-width:140px;text-align:center}.rival-header-card{background:#262834;color:white;border-radius:11px;padding:17px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px}.rival-header-card h2,.rival-header-card p{margin:2px 0}.rival-header-card p{color:#aeb0ba;font-size:10px}.rival-badge{width:46px;height:46px;border:2px solid #ffbd35;color:#ffbd35;border-radius:50%;display:grid;place-items:center;font:800 18px Manrope}@media(max-width:680px){.opponent-bench{order:3}}
 .rival-colors{margin-left:auto;display:flex;gap:12px}.rival-colors label{font-size:8px;color:#bdbec7;font-weight:700;letter-spacing:.08em}.rival-colors input{display:block;width:42px;height:28px;border:1px solid #ffffff44;border-radius:5px;background:none;padding:2px;margin-top:5px;cursor:pointer}.pitch-player.sub-selected:before{content:"SALE";position:absolute;left:50%;top:-25px;transform:translateX(-50%);background:#d74650;color:white;border-radius:8px;padding:2px 6px;font-size:7px;font-weight:800}.sub-badge{position:absolute;z-index:10;transform:translate(-50%,-50%);background:#fff;border-radius:16px;padding:4px 7px;box-shadow:0 3px 8px #0006;font-size:13px;font-weight:900;display:flex;gap:2px}.sub-badge .in{color:#18a567}.sub-badge .out{color:#dc4f57}.substitution-tool.active{background:#e9f7f0!important;color:#16865a!important}@media(max-width:680px){.rival-colors{width:100%;margin:9px 0 0}.rival-header-card{flex-wrap:wrap}}
 .pitch-player.rival .player-token{background-color:var(--rival-primary,#20232b);border-color:var(--rival-secondary,#ffbd35)}
+
+/* Acceso con clave y sincronización */
+.auth-overlay{position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,#21065f,#31098c 55%,#4b16b7);display:grid;place-items:center;padding:20px}
+.auth-overlay.hidden{display:none}
+.auth-card{background:white;border-radius:16px;padding:34px 30px;width:min(420px,100%);text-align:center;box-shadow:0 30px 80px #10052f66}
+.auth-crest{width:56px;height:64px;background:var(--purple);color:white;border-radius:50% 50% 48% 48%/32% 32% 68% 68%;display:grid;place-items:center;margin:0 auto;font:800 16px Manrope;box-shadow:inset 0 0 0 3px #6030c6}
+.auth-card h1{font:800 24px Manrope;margin:14px 0 6px}
+.auth-card>p{color:#746f82;font-size:12px;margin:0 0 18px}
+#authForm{display:grid;gap:10px}
+#authForm input{border:1px solid #ddd9e3;border-radius:9px;padding:12px;text-align:center;font-weight:700;outline:none}
+#authForm input:focus{border-color:var(--purple)}
+#authForm .btn{padding:12px}
+.auth-error{color:var(--red);font-size:11px;font-weight:700;min-height:14px;margin:8px 0 0}
+.auth-hint{color:#9a94a5;font-size:10px;margin:14px 0 0}
+.text-btn.light{color:#c9bce8;padding:12px 0 0;display:block;width:100%;text-align:left}
+.text-btn.light:hover{color:white}

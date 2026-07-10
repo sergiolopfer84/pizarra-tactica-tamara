@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada pizarra vive en un documento cuyo ID es el hash de la clave de acceso.
+    // Solo quien conoce la clave puede llegar a su documento.
+    match /pizarras/{boardId} {
+      allow read: if true;
+      allow write: if request.resource != null
+                   && request.resource.data.keys().hasOnly(['data', 'writer', 'updatedAt'])
+                   && request.resource.data.data is string
+                   && request.resource.data.data.size() < 950000;
+    }
+  }
+}

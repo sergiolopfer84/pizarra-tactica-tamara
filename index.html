@@ -11,6 +11,19 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+      <span class="auth-crest">UD</span>
+      <h1>Pizarra técnica</h1>
+      <p>Escribe tu clave de acceso. Cada clave tiene su propia pizarra: usa la misma clave en el PC, la tablet o el móvil y verás los mismos datos en todos.</p>
+      <form id="authForm">
+        <input id="accessKey" type="text" placeholder="Tu clave de acceso" autocomplete="off" required />
+        <button class="btn primary" type="submit" id="enterBtn">Entrar</button>
+      </form>
+      <p class="auth-error" id="authError"></p>
+      <p class="auth-hint">Si la clave es nueva se creará una pizarra vacía. Comparte tu clave solo con quien deba ver y editar tus datos.</p>
+    </div>
+  </div>
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="#" aria-label="Inicio">
@@ -25,6 +38,7 @@
       <div class="sidebar-foot">
         <div class="season"><span>Temporada</span><strong>2026 / 27</strong></div>
         <div class="coach"><span class="coach-avatar">CT</span><span><strong>Cuerpo técnico</strong><small>UD Tamaraceite</small></span></div>
+        <button id="changeKey" class="text-btn light">⇄ Cambiar de clave</button>
       </div>
     </aside>
 
@@ -33,7 +47,7 @@
         <button class="mobile-menu" aria-label="Abrir menú">☰</button>
         <div><span class="eyebrow" id="sectionEyebrow">PARTIDO · PLANIFICACIÓN</span><h1 id="pageTitle">Pizarra táctica</h1></div>
         <div class="header-actions">
-          <span class="saved-status"><i></i><span>Guardado</span></span>
+          <span class="saved-status"><i id="syncDot"></i><span id="syncLabel">Guardado</span></span>
           <button class="btn secondary" id="printBtn">⇩ <span>Exportar PDF</span></button>
           <button class="btn primary" id="saveBtn">Guardar cambios</button>
         </div>
@@ -119,6 +133,8 @@
     </form>
   </dialog>
   <div id="toast" class="toast">Cambios guardados</div>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

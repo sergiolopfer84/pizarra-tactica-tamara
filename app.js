@@ -10,15 +10,23 @@ const formations={
 const seedPlayers=[
   ['Álvaro Robles',1,'Portero','available','Seguridad en el juego aéreo.'],['Aythami',4,'Defensa','available','Central diestro.'],['David García',5,'Defensa','available','Líder de la línea defensiva.'],['Javi Trujillo',2,'Lateral','doubt','Molestias leves. Evaluar antes del partido.'],['Carlos Cid',3,'Lateral','available','Buena proyección ofensiva.'],['Dani Ojeda',6,'Mediocentro','available','Pivote defensivo.'],['Ale González',8,'Mediocentro','available','Llegada desde segunda línea.'],['Samuel Ramos',10,'Mediocentro','available','Balón parado.'],['Eros Delgado',7,'Extremo','available','Ataca bien el espacio.'],['Quintero',11,'Extremo','injured','Recuperación muscular.'],['Asdrúbal',9,'Delantero','available','Referencia ofensiva.'],['Julio Báez',14,'Delantero','suspended','Un partido de sanción.']
 ].map((p,i)=>({id:'p'+i,name:p[0],number:p[1],position:p[2],status:p[3],notes:p[4],photo:''}));
-let state=JSON.parse(localStorage.getItem(STORAGE)||'null')||{players:seedPlayers,tactics:[{id:'t1',name:'Táctica 1',formation:'4-3-3',placed:[],arrows:[]}],activeTactic:'t1',match:{opponent:'CD Mensajero',competition:'Tercera Federación',date:'',venue:'Juan Guedes'}};
-state.rivals ||= [['Portero rival',1,'Portero'],['Central rival',4,'Defensa'],['Lateral rival',2,'Lateral'],['Mediocentro rival',6,'Mediocentro'],['Delantero rival',9,'Delantero']].map((p,i)=>({id:'r'+i,name:p[0],number:p[1],position:p[2],status:'available',notes:'',photo:''}));
-state.rivalColors ||= {primary:'#20232b',secondary:'#ffbd35'};
-state.tactics.forEach(t=>{t.opponentPlaced||=[];t.graphics||=[];t.labels||=[];t.highlighted||=[];t.substitutions||=[]});
+function defaultState(){return {players:seedPlayers.map(p=>({...p})),tactics:[{id:'t1',name:'Táctica 1',formation:'4-3-3',placed:[],arrows:[]}],activeTactic:'t1',match:{opponent:'CD Mensajero',competition:'Tercera Federación',date:'',venue:'Juan Guedes'}}}
+function normalizeState(s){
+  s.players||=[];s.match||={opponent:'',competition:'',date:'',venue:''};
+  s.tactics||=[{id:'t1',name:'Táctica 1',formation:'4-3-3',placed:[],arrows:[]}];
+  if(!s.tactics.find(t=>t.id===s.activeTactic))s.activeTactic=s.tactics[0].id;
+  s.rivals ||= [['Portero rival',1,'Portero'],['Central rival',4,'Defensa'],['Lateral rival',2,'Lateral'],['Mediocentro rival',6,'Mediocentro'],['Delantero rival',9,'Delantero']].map((p,i)=>({id:'r'+i,name:p[0],number:p[1],position:p[2],status:'available',notes:'',photo:''}));
+  s.rivalColors ||= {primary:'#20232b',secondary:'#ffbd35'};
+  s.tactics.forEach(t=>{t.placed||=[];t.arrows||=[];t.opponentPlaced||=[];t.graphics||=[];t.labels||=[];t.highlighted||=[];t.substitutions||=[]});
+  return s
+}
+let state=normalizeState(defaultState());
 let editingId=null,photoData='',tool='move',drawing=null,substitutionPending=null;
 const statusText={available:'Disponible',doubt:'En duda',injured:'Lesionado',suspended:'Sancionado'};
 const initials=n=>n.split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase();
 const tactic=()=>state.tactics.find(t=>t.id===state.activeTactic);
-function persist(show=false){localStorage.setItem(STORAGE,JSON.stringify(state));if(show){$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),1800)}}
+function storageKey(){return keyHash?STORAGE+':'+keyHash:STORAGE}
+function persist(show=false){localStorage.setItem(storageKey(),JSON.stringify(state));scheduleCloudSave();if(show){$('#toast').textContent='Cambios guardados';$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),1800)}}
 function avatarStyle(p){return p.photo?`style="background-image:url('${p.photo}')"`:''}
 function switchView(v){$$('.view,.nav-item').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$(`.nav-item[data-view="${v}"]`).classList.add('active');$('#pageTitle').textContent=v==='board'?'Pizarra táctica':v==='squad'?'Gestión de plantilla':'Análisis del rival';$('#sectionEyebrow').textContent=v==='board'?'PARTIDO · PLANIFICACIÓN':v==='squad'?'EQUIPO · TEMPORADA 2026/27':'SCOUTING · PRÓXIMO PARTIDO';$('.sidebar').classList.remove('open');renderAll()}
 $$('.nav-item').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$$('[data-go-squad]').forEach(b=>b.onclick=()=>switchView('squad'));$$('[data-go-rival]').forEach(b=>b.onclick=()=>switchView('rival'));$('.mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
@@ -47,9 +55,88 @@ function renderRivals(){const q=$('#rivalSearch').value.toLowerCase();$('#rivalT
 $('#rivalSearch').oninput=renderRivals;$('#newRival').onclick=()=>openPlayer(null,'rival');
 function openPlayer(id=null,type='own'){editingId=id;$('#rosterType').value=type;const roster=type==='rival'?state.rivals:state.players;const p=roster.find(x=>x.id===id)||{name:'',number:'',position:'Portero',status:'available',notes:'',photo:''};$('#modalTitle').textContent=id?(type==='rival'?'Editar rival':'Editar jugador'):(type==='rival'?'Nuevo jugador rival':'Nuevo jugador');$('#playerName').value=p.name;$('#playerNumber').value=p.number;$('#playerPosition').value=p.position;$('#playerStatus').value=p.status;$('#playerNotes').value=p.notes;photoData=p.photo||'';updatePhoto(p.name);$('#playerDialog').showModal()}
 function updatePhoto(name=''){$('#photoPreview').src=photoData;$('#photoPreview').style.display=photoData?'block':'none';$('#photoInitials').style.display=photoData?'none':'block';$('#photoInitials').textContent=name?initials(name):'+'}
-$('#playerName').oninput=e=>updatePhoto(e.target.value);$('#photoInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=ev=>{photoData=ev.target.result;updatePhoto($('#playerName').value)};reader.readAsDataURL(f)};$$('.close').forEach(b=>b.onclick=()=>$('#playerDialog').close());
+$('#playerName').oninput=e=>updatePhoto(e.target.value);$('#photoInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>{const max=300,ratio=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*ratio));c.height=Math.max(1,Math.round(img.height*ratio));const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);photoData=c.toDataURL('image/jpeg',.78);updatePhoto($('#playerName').value)};img.src=ev.target.result};reader.readAsDataURL(f)};$$('.close').forEach(b=>b.onclick=()=>$('#playerDialog').close());
 $('#playerForm').onsubmit=e=>{e.preventDefault();const type=$('#rosterType').value,roster=type==='rival'?state.rivals:state.players;const obj={id:editingId||(type==='rival'?'r':'p')+Date.now(),name:$('#playerName').value.trim(),number:Number($('#playerNumber').value)||'',position:$('#playerPosition').value,status:$('#playerStatus').value,notes:$('#playerNotes').value.trim(),photo:photoData};if(!obj.name)return;if(editingId)Object.assign(roster.find(p=>p.id===editingId),obj);else roster.push(obj);$('#playerDialog').close();persist(true);renderAll()};
-['opponent','competition','matchDate','venue'].forEach(id=>{$('#'+id).value=state.match[id==='matchDate'?'date':id]||'';$('#'+id).onchange=e=>{state.match[id==='matchDate'?'date':id]=e.target.value;persist()}});
-$('#rivalPrimary').value=state.rivalColors.primary;$('#rivalSecondary').value=state.rivalColors.secondary;['rivalPrimary','rivalSecondary'].forEach(id=>$('#'+id).oninput=e=>{state.rivalColors[id==='rivalPrimary'?'primary':'secondary']=e.target.value;persist();renderPitch()});
+function refreshMatchInputs(){['opponent','competition','matchDate','venue'].forEach(id=>{$('#'+id).value=state.match[id==='matchDate'?'date':id]||''});$('#rivalPrimary').value=state.rivalColors.primary;$('#rivalSecondary').value=state.rivalColors.secondary}
+['opponent','competition','matchDate','venue'].forEach(id=>{$('#'+id).onchange=e=>{state.match[id==='matchDate'?'date':id]=e.target.value;persist()}});
+['rivalPrimary','rivalSecondary'].forEach(id=>$('#'+id).oninput=e=>{state.rivalColors[id==='rivalPrimary'?'primary':'secondary']=e.target.value;persist();renderPitch()});
+refreshMatchInputs();
 $('#saveBtn').onclick=()=>persist(true);$('#printBtn').onclick=()=>{document.body.classList.add('export-all');window.print();setTimeout(()=>document.body.classList.remove('export-all'),500)};window.onafterprint=()=>document.body.classList.remove('export-all');
 function renderAll(){renderBoard();renderSquad();renderRivals()}renderAll();
+
+/* ===== Sincronización en la nube (Firebase Firestore) ===== */
+const FIREBASE_CONFIG={apiKey:'AIzaSyBrysK7UDFDW_XpY1tSFnrQSX9rD8mbrrQ',authDomain:'pizarra-tamara-2026.firebaseapp.com',projectId:'pizarra-tamara-2026',storageBucket:'pizarra-tamara-2026.firebasestorage.app',messagingSenderId:'886197824457',appId:'1:886197824457:web:4beab9509451daac1c9618'};
+const CLIENT_ID='c'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+let db=null,boardRef=null,keyHash='',saveTimer=null,unsubscribe=null;
+try{
+  if(typeof firebase!=='undefined'&&FIREBASE_CONFIG.projectId!=='__PROJECT'+'_ID__'){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db=firebase.firestore();
+    db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+  }
+}catch(e){console.warn('Firebase no disponible:',e)}
+async function sha256hex(text){
+  if(crypto&&crypto.subtle){
+    const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')
+  }
+  // Fallback determinista (solo para abrir el archivo en local sin HTTPS)
+  let out='';for(let s=0;s<4;s++){let h=0x811c9dc5^s;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,0x01000193)}out+=(h>>>0).toString(16).padStart(8,'0')}
+  return out
+}
+function setSync(ok,label){const dot=$('#syncDot'),lab=$('#syncLabel');if(!dot)return;dot.style.background=ok?'var(--green)':'var(--amber)';lab.textContent=label||(ok?'Sincronizado':'Sin conexión')}
+function scheduleCloudSave(){
+  if(!boardRef)return;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    boardRef.set({data:JSON.stringify(state),writer:CLIENT_ID,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+      .then(()=>setSync(true)).catch(e=>{console.warn('Error al guardar en la nube:',e);setSync(false)})
+  },600)
+}
+function applyRemote(json){
+  try{state=normalizeState(JSON.parse(json))}catch(e){return}
+  localStorage.setItem(storageKey(),json);
+  refreshMatchInputs();renderAll();setSync(true)
+}
+async function connectBoard(key){
+  keyHash=await sha256hex('udt·pizarra·'+key);
+  localStorage.setItem('udt-key',key);
+  const cached=localStorage.getItem(storageKey())||localStorage.getItem(STORAGE);
+  state=normalizeState(cached?JSON.parse(cached):defaultState());
+  refreshMatchInputs();renderAll();
+  $('#authOverlay').classList.add('hidden');
+  if(!db){setSync(false,'Solo local');return}
+  if(unsubscribe)unsubscribe();
+  boardRef=db.collection('pizarras').doc(keyHash);
+  setSync(false,'Conectando…');
+  try{
+    const snap=await boardRef.get();
+    if(snap.exists&&snap.data().data)applyRemote(snap.data().data);
+    else await boardRef.set({data:JSON.stringify(state),writer:CLIENT_ID,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    setSync(true)
+  }catch(e){console.warn('Sin conexión con la nube:',e);setSync(false)}
+  unsubscribe=boardRef.onSnapshot(s=>{
+    if(!s.exists||s.metadata.hasPendingWrites)return;
+    const d=s.data();
+    if(d.writer===CLIENT_ID||!d.data)return;
+    applyRemote(d.data)
+  },e=>{console.warn('Error de sincronización:',e);setSync(false)})
+}
+$('#authForm').onsubmit=async e=>{
+  e.preventDefault();
+  const k=$('#accessKey').value.trim();
+  if(k.length<6){$('#authError').textContent='La clave debe tener al menos 6 caracteres.';return}
+  $('#authError').textContent='';
+  const btn=$('#enterBtn');btn.disabled=true;btn.textContent='Conectando…';
+  await connectBoard(k);
+  btn.disabled=false;btn.textContent='Entrar'
+};
+$('#changeKey').onclick=()=>{
+  if(confirm('¿Cambiar de clave? Tus datos seguirán guardados en la nube bajo la clave actual.')){
+    localStorage.removeItem('udt-key');location.reload()
+  }
+};
+(function boot(){
+  const k=localStorage.getItem('udt-key');
+  if(k){$('#authOverlay').classList.add('hidden');connectBoard(k)}
+})();
