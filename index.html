@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <meta name="theme-color" content="#2d087f" />
+  <title>UD Tamaraceite | Pizarra técnica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="Inicio">
+        <span class="crest"><span>UD</span><i></i></span>
+        <span><strong>UD TAMARACEITE</strong><small>CUERPO TÉCNICO</small></span>
+      </a>
+      <nav>
+        <button class="nav-item active" data-view="board"><span class="icon">▦</span><span>Pizarra táctica</span></button>
+        <button class="nav-item" data-view="squad"><span class="icon">♙</span><span>Plantilla</span><b id="squadCount">0</b></button>
+        <button class="nav-item" data-view="rival"><span class="icon">♟</span><span>Rival</span><b id="rivalCount">0</b></button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="season"><span>Temporada</span><strong>2026 / 27</strong></div>
+        <div class="coach"><span class="coach-avatar">CT</span><span><strong>Cuerpo técnico</strong><small>UD Tamaraceite</small></span></div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <button class="mobile-menu" aria-label="Abrir menú">☰</button>
+        <div><span class="eyebrow" id="sectionEyebrow">PARTIDO · PLANIFICACIÓN</span><h1 id="pageTitle">Pizarra táctica</h1></div>
+        <div class="header-actions">
+          <span class="saved-status"><i></i><span>Guardado</span></span>
+          <button class="btn secondary" id="printBtn">⇩ <span>Exportar PDF</span></button>
+          <button class="btn primary" id="saveBtn">Guardar cambios</button>
+        </div>
+      </header>
+
+      <section id="boardView" class="view active">
+        <div class="match-card">
+          <div class="match-main">
+            <label>PRÓXIMO PARTIDO</label>
+            <div class="versus"><div class="mini-crest">UDT</div><span>UD Tamaraceite</span><b>VS</b><input id="opponent" value="CD Mensajero" aria-label="Rival" /></div>
+          </div>
+          <div class="match-meta"><label>COMPETICIÓN</label><input id="competition" value="Tercera Federación" /></div>
+          <div class="match-meta"><label>FECHA</label><input id="matchDate" type="date" /></div>
+          <div class="match-meta"><label>LUGAR</label><input id="venue" value="Juan Guedes" /></div>
+        </div>
+
+        <div class="tactic-tabs-wrap"><div class="tactic-tabs" id="tacticTabs"></div><button id="addTactic" class="add-tab">＋ Nueva variante</button></div>
+
+        <div class="workspace">
+          <aside class="bench-panel opponent-bench">
+            <div class="panel-heading"><div><span>RIVAL</span><h3>Jugadores rivales</h3></div><span id="rivalAvailableCount" class="count-pill">0</span></div>
+            <p class="helper">Pulsa para añadir al campo.</p><div id="rivalBenchList" class="bench-list"></div>
+            <button class="text-btn" data-go-rival>＋ Gestionar equipo rival</button>
+          </aside>
+          <section class="pitch-panel">
+            <div class="pitch-toolbar">
+              <div><label>FORMACIÓN</label><select id="formation"><option>4-3-3</option><option>4-2-3-1</option><option>4-4-2</option><option>3-5-2</option><option>3-4-3</option><option>Libre</option></select></div>
+              <span class="tool-divider"></span>
+              <button class="tool active" data-tool="move" title="Mover jugadores">↖ <span>Mover</span></button>
+              <button class="tool" data-tool="arrow" title="Flecha recta">➜ <span>Flecha</span></button>
+              <button class="tool" data-tool="curve" title="Flecha curva">↪ <span>Curva</span></button>
+              <button class="tool" data-tool="circle" title="Dibujar círculo">◯ <span>Círculo</span></button>
+              <button class="tool" data-tool="highlight" title="Resaltar jugador">◉ <span>Marcar</span></button>
+              <button class="tool substitution-tool" data-tool="sub" title="Realizar sustitución">⇄ <span>Cambio</span></button>
+              <button class="tool" data-tool="pen" title="Dibujo libre">✎ <span>Bolígrafo</span></button>
+              <button class="tool" data-tool="text" title="Añadir texto">T <span>Texto</span></button>
+              <button class="tool danger" data-tool="remove" title="Quitar elemento seleccionado">− <span>Quitar</span></button>
+              <button class="tool danger" id="clearArrows" title="Borrar indicaciones">⌫</button>
+              <button class="tool" id="clearPitch" title="Quitar jugadores del campo">Limpiar</button>
+            </div>
+            <div class="pitch-wrap">
+              <div class="pitch" id="pitch">
+                <div class="grass-lines"></div><div class="field-outline"></div><div class="halfway"></div><div class="center-circle"></div><div class="center-dot"></div>
+                <div class="penalty top"><i></i><b></b></div><div class="goal top"></div>
+                <div class="penalty bottom"><i></i><b></b></div><div class="goal bottom"></div>
+                <svg id="drawingLayer" viewBox="0 0 1000 1400" preserveAspectRatio="none"><defs><marker id="arrowHead" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L0,9 L9,4.5 z" fill="#f6c344"/></marker></defs><g id="arrows"></g><g id="graphics"></g><path id="draftArrow" class="draft" d="" /></svg>
+                <div id="textLayer"></div><div id="substitutionLayer"></div>
+                <div id="pitchPlayers"></div>
+                <div class="pitch-hint" id="pitchHint">Selecciona jugadores del banquillo para colocarlos</div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="bench-panel">
+            <div class="panel-heading"><div><span>DISPONIBLES</span><h3>Banquillo</h3></div><span id="availableCount" class="count-pill">0</span></div>
+            <p class="helper">Pulsa un jugador para añadirlo al campo.</p>
+            <div id="benchList" class="bench-list"></div>
+            <button class="text-btn" data-go-squad>＋ Añadir jugador a plantilla</button>
+            <div class="legend"><span><i class="dot green"></i>Disponible</span><span><i class="dot amber"></i>Duda</span><span><i class="dot red"></i>Baja</span></div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="squadView" class="view">
+        <div class="squad-toolbar"><div class="search">⌕ <input id="playerSearch" placeholder="Buscar por nombre o posición…" /></div><select id="statusFilter"><option value="all">Todos los estados</option><option value="available">Disponibles</option><option value="doubt">Dudas</option><option value="injured">Lesionados</option><option value="suspended">Sancionados</option></select><button class="btn primary" id="newPlayer">＋ Añadir jugador</button></div>
+        <div class="squad-summary"><div><span class="summary-icon purple">♙</span><p><b id="totalPlayers">0</b><small>Jugadores</small></p></div><div><span class="summary-icon green">✓</span><p><b id="fitPlayers">0</b><small>Disponibles</small></p></div><div><span class="summary-icon amber">!</span><p><b id="doubtPlayers">0</b><small>En duda</small></p></div><div><span class="summary-icon red">＋</span><p><b id="outPlayers">0</b><small>Bajas</small></p></div></div>
+        <div id="playerGrid" class="player-grid"></div>
+      </section>
+      <section id="rivalView" class="view">
+        <div class="squad-toolbar"><div class="search">⌕ <input id="rivalSearch" placeholder="Buscar jugador rival…" /></div><button class="btn primary" id="newRival">＋ Añadir rival</button></div>
+        <div class="rival-header-card"><div class="rival-badge">R</div><div><span class="eyebrow">PRÓXIMO ADVERSARIO</span><h2 id="rivalTeamName">Equipo rival</h2><p>Prepara su posible once y colócalo sobre la pizarra.</p></div><div class="rival-colors"><label>COLOR PRINCIPAL<input id="rivalPrimary" type="color" value="#20232b"></label><label>COLOR SECUNDARIO<input id="rivalSecondary" type="color" value="#ffbd35"></label></div></div>
+        <div id="rivalGrid" class="player-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="playerDialog">
+    <form method="dialog" id="playerForm">
+      <div class="modal-head"><div><span class="eyebrow">FICHA DEL JUGADOR</span><h2 id="modalTitle">Nuevo jugador</h2></div><button value="cancel" class="close" type="button">×</button></div>
+      <div class="photo-edit"><label class="photo-preview" for="photoInput"><img id="photoPreview" alt=""/><span id="photoInitials">+</span><i>✎</i></label><div><strong>Foto de perfil</strong><small>JPG o PNG · se mostrará en la pizarra</small><label for="photoInput" class="upload-btn">Subir imagen</label><input id="photoInput" type="file" accept="image/*" hidden /></div></div>
+      <div class="form-grid"><label>Nombre completo<input id="playerName" required placeholder="Ej. Alejandro Pérez" /></label><label>Dorsal<input id="playerNumber" type="number" min="1" max="99" placeholder="10" /></label><label>Posición<select id="playerPosition"><option>Portero</option><option>Defensa</option><option>Lateral</option><option>Mediocentro</option><option>Extremo</option><option>Delantero</option></select></label><label>Estado<select id="playerStatus"><option value="available">Disponible</option><option value="doubt">En duda</option><option value="injured">Lesionado</option><option value="suspended">Sancionado</option></select></label><label class="full">Notas<textarea id="playerNotes" rows="4" placeholder="Información médica, indicaciones, observaciones…"></textarea></label></div><input type="hidden" id="rosterType" value="own" />
+      <div class="modal-actions"><button type="button" class="btn secondary close">Cancelar</button><button type="submit" class="btn primary">Guardar jugador</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast">Cambios guardados</div>
+  <script src="app.js"></script>
+</body>
+</html>

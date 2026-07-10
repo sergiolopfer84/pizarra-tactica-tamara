@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(gh auth status)",
+      "PowerShell(winget --version)",
+      "PowerShell(winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements --silent)",
+      "PowerShell(winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements --silent)",
+      "PowerShell($env:PATH = \"C:\\\\Program Files\\\\Git\\\\cmd;C:\\\\Program Files\\\\GitHub CLI;$env:PATH\"; git init; git config user.name \"Sergio\"; git config user.email \"elsastre19@gmail.com\"; git add -A; git commit -m \"Primera version: pizarra tactica Tamara\"; git log --oneline)"
+    ]
+  }
+}
