@@ -12,6 +12,18 @@ Al entrar se pide una **clave de acceso**. Cada clave tiene su propia pizarra gu
 
 Para exportar, pulsa **Exportar PDF** y elige **Guardar como PDF** en el diálogo de impresión.
 
+## Convocatoria por WhatsApp
+
+El botón **Convocatoria** compone el mensaje del partido (fecha, hora, rival, campo, lista de convocados, hora de citación y un aviso libre) y lo abre en WhatsApp para elegir el grupo del equipo.
+
+La aplicación **no envía nada por su cuenta**: no usa la API de Meta, no tiene coste por mensaje y los datos de los jugadores no salen del móvil del entrenador. Por defecto propone a todos los jugadores disponibles; la selección se puede ajustar y queda guardada con el partido.
+
+## Copias de seguridad
+
+- Desde la app: **Descargar copia** y **Restaurar copia** en la barra lateral (archivo `.json`).
+- Desde el PC: `powershell -ExecutionPolicy Bypass -File copia-pizarras.ps1` descarga todas las pizarras a `backups\`, omite las que no han cambiado y conserva las 10 últimas versiones de cada una.
+- La carpeta `backups/` está excluida del repositorio: contiene nombres, notas y fotos reales de jugadores.
+
 ## Sincronización
 
 - Los datos se guardan en Firestore (proyecto `pizarra-tamara-2026`) en un documento por clave (`pizarras/{hash de la clave}`).

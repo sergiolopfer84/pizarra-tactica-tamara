@@ -22,3 +22,87 @@
 .auth-hint{color:#9a94a5;font-size:10px;margin:14px 0 0}
 .text-btn.light{color:#c9bce8;padding:12px 0 0;display:block;width:100%;text-align:left}
 .text-btn.light:hover{color:white}
+
+/* ===== Ficha de jugador: la cabecera y los botones quedan siempre a la vista ===== */
+dialog[open]{display:flex;max-height:92vh;max-height:92dvh;overflow:hidden}
+#playerForm,#callForm{display:flex;flex-direction:column;width:100%;min-height:0}
+.modal-head,.photo-edit,.modal-actions{flex:0 0 auto}
+.form-grid,.modal-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.modal-actions{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+
+/* ===== Ajustes de móvil ===== */
+@media(max-width:680px){
+  /* La ficha se apila en una columna: el desplegable "Estado" ya no queda cortado */
+  .form-grid{grid-template-columns:1fr;gap:12px;padding:0 18px 16px}
+  .modal-head,.photo-edit{padding-left:18px;padding-right:18px}
+  .modal-actions{padding-left:18px;padding-right:18px}
+  /* 16px evita que iOS haga zoom al enfocar un campo y deje la pantalla descuadrada */
+  input,select,textarea{font-size:16px}
+  .form-grid input,.form-grid select,.form-grid textarea{padding:11px}
+  .form-grid textarea{min-height:88px}
+  .photo-edit{gap:12px}
+  .photo-preview{width:60px;height:60px;font-size:17px}
+  /* "Lugar" ya no se oculta: el partido se puede completar entero desde el móvil */
+  .match-card .match-meta:last-child{display:block}
+  .match-card{grid-template-columns:1fr 1fr}
+  .versus input{width:auto;flex:1}
+  /* Objetivos táctiles utilizables con el dedo */
+  .card-actions button{padding:11px 8px;font-size:11px}
+  .card-actions .delete{min-width:44px}
+  .bench-player{padding:10px}
+  .bench-list{max-height:260px}
+  .text-btn{padding:16px 0}
+  .squad-toolbar .btn.primary{padding:12px 14px}
+  /* Indicador de sincronización visible: hace falta saber si se guardó en la nube */
+  .saved-status{display:flex;margin-right:0}
+  .saved-status #syncLabel{display:none}
+  .saved-status.warn #syncLabel{display:inline;font-size:10px;color:var(--amber)}
+}
+
+/* En tablet la barra lateral se reduce a iconos y ocultaba el pie entero: sin él
+   no había forma de descargar una copia ni de cambiar de clave. Se deja el pie
+   con solo los iconos. Por debajo de 680px la barra vuelve a ser un cajón
+   completo, así que ahí sí se ven las etiquetas. */
+/* ===== Convocatoria ===== */
+.close-call{border:0;background:none;font-size:22px;cursor:pointer;color:inherit}
+.modal-scroll{padding:0 24px 18px}
+.call-fields{display:grid;grid-template-columns:1fr 120px;gap:13px;padding:16px 0 4px}
+.call-fields label{font-size:10px;font-weight:700}
+.call-fields .full{grid-column:1/-1}
+.call-fields input{display:block;width:100%;border:1px solid #ddd9e3;border-radius:7px;padding:9px;margin-top:5px;outline:none}
+.call-fields input:focus{border-color:var(--purple)}
+.call-list-head{display:flex;align-items:center;justify-content:space-between;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.call-list-head b{color:var(--purple)}
+.call-list-head .text-btn{padding:4px 9px;font-size:10px}
+.call-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f2f0f5;cursor:pointer}
+.call-row input{width:17px;height:17px;flex:none;accent-color:var(--purple);cursor:pointer}
+.call-num{width:22px;text-align:right;color:#aaa4b3;font:800 11px Manrope;flex:none}
+.call-row strong{flex:1;min-width:0;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.call-tag{display:inline-flex;align-items:center;gap:5px;flex:none;font-size:8px;font-weight:700;border-radius:10px;background:#f2f1f4;color:#7c7686;padding:4px 8px}
+.call-tag i{width:5px;height:5px;border-radius:50%}
+.call-preview-label{display:block;margin:18px 0 7px}
+#callPreview{width:100%;border:1px solid #ddd9e3;border-radius:8px;padding:12px;font:12px/1.55 'DM Sans',sans-serif;color:var(--ink);resize:vertical;outline:none;background:#fbfafc}
+#callPreview:focus{border-color:var(--purple)}
+@media(max-width:680px){
+  .modal-scroll{padding:0 18px 16px}
+  .call-fields{grid-template-columns:1fr;gap:12px}
+  .call-row{padding:11px 0}
+  .call-row input{width:20px;height:20px}
+  /* El textarea a 16px evita que iOS haga zoom al tocarlo */
+  #callPreview{font-size:16px;line-height:1.5}
+}
+
+/* La tarjeta de partido pasa de 4 a 5 celdas al añadir HORA. Envuelto en
+   min-width para no pisar el apilado en móvil, que se define más arriba. */
+@media(min-width:681px){
+  .match-card{grid-template-columns:2fr repeat(4,1fr)}
+  .match-main,.match-meta{padding:0 14px}
+  .match-main{padding-left:0}
+}
+
+@media(max-width:900px) and (min-width:681px){
+  .sidebar-foot{display:block;border-top:1px solid #462581;padding:14px 0 0}
+  .sidebar-foot .season,.sidebar-foot .coach{display:none}
+  .text-btn.light{text-align:center;font-size:17px;padding:11px 0 0}
+  .text-btn.light span{display:none}
+}

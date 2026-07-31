@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#2d087f" />
   <title>UD Tamaraceite | Pizarra técnica</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -38,7 +38,10 @@
       <div class="sidebar-foot">
         <div class="season"><span>Temporada</span><strong>2026 / 27</strong></div>
         <div class="coach"><span class="coach-avatar">CT</span><span><strong>Cuerpo técnico</strong><small>UD Tamaraceite</small></span></div>
-        <button id="changeKey" class="text-btn light">⇄ Cambiar de clave</button>
+        <button id="exportBackup" class="text-btn light" title="Descargar copia de seguridad">⇩<span> Descargar copia</span></button>
+        <button id="importBackup" class="text-btn light" title="Restaurar desde una copia">⇧<span> Restaurar copia</span></button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden />
+        <button id="changeKey" class="text-btn light" title="Cambiar de clave">⇄<span> Cambiar de clave</span></button>
       </div>
     </aside>
 
@@ -48,6 +51,7 @@
         <div><span class="eyebrow" id="sectionEyebrow">PARTIDO · PLANIFICACIÓN</span><h1 id="pageTitle">Pizarra táctica</h1></div>
         <div class="header-actions">
           <span class="saved-status"><i id="syncDot"></i><span id="syncLabel">Guardado</span></span>
+          <button class="btn secondary" id="callBtn" title="Preparar convocatoria">📋 <span>Convocatoria</span></button>
           <button class="btn secondary" id="printBtn">⇩ <span>Exportar PDF</span></button>
           <button class="btn primary" id="saveBtn">Guardar cambios</button>
         </div>
@@ -61,6 +65,7 @@
           </div>
           <div class="match-meta"><label>COMPETICIÓN</label><input id="competition" value="Tercera Federación" /></div>
           <div class="match-meta"><label>FECHA</label><input id="matchDate" type="date" /></div>
+          <div class="match-meta"><label>HORA</label><input id="matchTime" type="time" /></div>
           <div class="match-meta"><label>LUGAR</label><input id="venue" value="Juan Guedes" /></div>
         </div>
 
@@ -131,6 +136,23 @@
       <div class="form-grid"><label>Nombre completo<input id="playerName" required placeholder="Ej. Alejandro Pérez" /></label><label>Dorsal<input id="playerNumber" type="number" min="1" max="99" placeholder="10" /></label><label>Posición<select id="playerPosition"><option>Portero</option><option>Defensa</option><option>Lateral</option><option>Mediocentro</option><option>Extremo</option><option>Delantero</option></select></label><label>Estado<select id="playerStatus"><option value="available">Disponible</option><option value="doubt">En duda</option><option value="injured">Lesionado</option><option value="suspended">Sancionado</option></select></label><label class="full">Notas<textarea id="playerNotes" rows="4" placeholder="Información médica, indicaciones, observaciones…"></textarea></label></div><input type="hidden" id="rosterType" value="own" />
       <div class="modal-actions"><button type="button" class="btn secondary close">Cancelar</button><button type="submit" class="btn primary">Guardar jugador</button></div>
     </form>
+  </dialog>
+  <dialog id="callDialog">
+    <div id="callForm">
+      <div class="modal-head"><div><span class="eyebrow">PRÓXIMO PARTIDO</span><h2>Convocatoria</h2></div><button class="close-call" type="button">×</button></div>
+      <div class="modal-scroll">
+        <div class="call-fields">
+          <label>Equipo<input id="callTeam" placeholder="UD Tamaraceite" /></label>
+          <label>Hora de citación<input id="callMeet" type="time" /></label>
+          <label class="full">Aviso para el grupo<input id="callNotice" placeholder="Ej. Traer las dos equipaciones" /></label>
+        </div>
+        <div class="call-list-head"><span class="eyebrow">JUGADORES · <b id="callCount">0</b> convocados</span><span><button type="button" class="text-btn" id="callAll">Todos</button><button type="button" class="text-btn" id="callNone">Ninguno</button></span></div>
+        <div id="callList"></div>
+        <span class="eyebrow call-preview-label">MENSAJE · puedes editarlo antes de enviar</span>
+        <textarea id="callPreview" rows="12"></textarea>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn secondary" id="callCopy">Copiar texto</button><button type="button" class="btn primary" id="callSend">Enviar por WhatsApp</button></div>
+    </div>
   </dialog>
   <div id="toast" class="toast">Cambios guardados</div>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>

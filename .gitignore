@@ -2,3 +2,6 @@
 .agents/
 *.zip
 firebase-debug.log
+# Copias de seguridad de las pizarras: contienen datos reales de jugadores
+# (nombres, notas, fotos). El repositorio es público: nunca deben subirse.
+backups/
