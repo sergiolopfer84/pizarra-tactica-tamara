@@ -12,6 +12,14 @@ Al entrar se pide una **clave de acceso**. Cada clave tiene su propia pizarra gu
 
 Para exportar, pulsa **Exportar PDF** y elige **Guardar como PDF** en el diálogo de impresión.
 
+## Escudo y nombre del club
+
+En **Datos del club** (botón de la barra lateral, o pulsando el escudo) se cambia el nombre y se sube el escudo. El escudo se guarda dentro de los datos de la pizarra, así que **cada clave tiene el suyo** y se sincroniza con el resto de dispositivos. Se reduce a 220 px y se guarda en PNG para conservar el fondo transparente.
+
+Aparece en la barra lateral, en la tarjeta del partido y en el PDF exportado.
+
+Para una **versión personalizada** (vender la app a otro club con su imagen), basta con sustituir el archivo de `escudos/` y cambiar la constante `DEFAULT_CREST` en `app.js`: ese será el escudo que vean quienes no hayan subido ninguno, incluida la pantalla de acceso.
+
 ## Convocatoria por WhatsApp
 
 El botón **Convocatoria** compone el mensaje del partido (fecha, hora, rival, campo, lista de convocados, hora de citación y un aviso libre) y lo abre en WhatsApp para elegir el grupo del equipo.

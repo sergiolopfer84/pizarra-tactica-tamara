@@ -13,7 +13,7 @@
 <body>
   <div id="authOverlay" class="auth-overlay">
     <div class="auth-card">
-      <span class="auth-crest">UD</span>
+      <img class="auth-crest-img" id="authCrest" src="escudos/Escudo-UD-Tamaraceite.png" alt="" />
       <h1>Pizarra técnica</h1>
       <p>Escribe tu clave de acceso. Cada clave tiene su propia pizarra: usa la misma clave en el PC, la tablet o el móvil y verás los mismos datos en todos.</p>
       <form id="authForm">
@@ -26,9 +26,9 @@
   </div>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#" aria-label="Inicio">
-        <span class="crest"><span>UD</span><i></i></span>
-        <span><strong>UD TAMARACEITE</strong><small>CUERPO TÉCNICO</small></span>
+      <a class="brand" href="#" aria-label="Datos del club" title="Cambiar escudo y nombre del club">
+        <img class="crest-img" id="brandCrest" src="escudos/Escudo-UD-Tamaraceite.png" alt="" />
+        <span><strong id="brandName">UD TAMARACEITE</strong><small>CUERPO TÉCNICO</small></span>
       </a>
       <nav>
         <button class="nav-item active" data-view="board"><span class="icon">▦</span><span>Pizarra táctica</span></button>
@@ -38,6 +38,7 @@
       <div class="sidebar-foot">
         <div class="season"><span>Temporada</span><strong>2026 / 27</strong></div>
         <div class="coach"><span class="coach-avatar">CT</span><span><strong>Cuerpo técnico</strong><small>UD Tamaraceite</small></span></div>
+        <button id="clubBtn" class="text-btn light" title="Escudo y nombre del club">⚙<span> Datos del club</span></button>
         <button id="exportBackup" class="text-btn light" title="Descargar copia de seguridad">⇩<span> Descargar copia</span></button>
         <button id="importBackup" class="text-btn light" title="Restaurar desde una copia">⇧<span> Restaurar copia</span></button>
         <input id="importFile" type="file" accept="application/json,.json" hidden />
@@ -61,7 +62,7 @@
         <div class="match-card">
           <div class="match-main">
             <label>PRÓXIMO PARTIDO</label>
-            <div class="versus"><div class="mini-crest">UDT</div><span>UD Tamaraceite</span><b>VS</b><input id="opponent" value="CD Mensajero" aria-label="Rival" /></div>
+            <div class="versus"><img class="mini-crest-img" id="matchCrest" src="escudos/Escudo-UD-Tamaraceite.png" alt="" /><span id="matchClub">UD Tamaraceite</span><b>VS</b><input id="opponent" value="CD Mensajero" aria-label="Rival" /></div>
           </div>
           <div class="match-meta"><label>COMPETICIÓN</label><input id="competition" value="Tercera Federación" /></div>
           <div class="match-meta"><label>FECHA</label><input id="matchDate" type="date" /></div>
@@ -136,6 +137,25 @@
       <div class="form-grid"><label>Nombre completo<input id="playerName" required placeholder="Ej. Alejandro Pérez" /></label><label>Dorsal<input id="playerNumber" type="number" min="1" max="99" placeholder="10" /></label><label>Posición<select id="playerPosition"><option>Portero</option><option>Defensa</option><option>Lateral</option><option>Mediocentro</option><option>Extremo</option><option>Delantero</option></select></label><label>Estado<select id="playerStatus"><option value="available">Disponible</option><option value="doubt">En duda</option><option value="injured">Lesionado</option><option value="suspended">Sancionado</option></select></label><label class="full">Notas<textarea id="playerNotes" rows="4" placeholder="Información médica, indicaciones, observaciones…"></textarea></label></div><input type="hidden" id="rosterType" value="own" />
       <div class="modal-actions"><button type="button" class="btn secondary close">Cancelar</button><button type="submit" class="btn primary">Guardar jugador</button></div>
     </form>
+  </dialog>
+  <dialog id="clubDialog">
+    <div id="clubForm">
+      <div class="modal-head"><div><span class="eyebrow">IDENTIDAD</span><h2>Datos del club</h2></div><button class="close-club" type="button">×</button></div>
+      <div class="modal-scroll">
+        <div class="club-edit">
+          <label class="club-preview" for="crestInput" title="Cambiar escudo"><img id="crestPreview" alt="" /><i>✎</i></label>
+          <div>
+            <strong>Escudo del club</strong>
+            <small>PNG con fondo transparente · aparece en la barra lateral, en el partido y en el PDF</small>
+            <label for="crestInput" class="upload-btn">Subir escudo</label>
+            <button type="button" class="text-btn" id="crestReset">Restaurar el escudo por defecto</button>
+            <input id="crestInput" type="file" accept="image/*" hidden />
+          </div>
+        </div>
+        <div class="club-fields"><label class="full">Nombre del club<input id="clubName" placeholder="UD Tamaraceite" /></label></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn primary close-club">Hecho</button></div>
+    </div>
   </dialog>
   <dialog id="callDialog">
     <div id="callForm">

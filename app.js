@@ -18,6 +18,7 @@ function normalizeState(s){
   s.rivals ||= [['Portero rival',1,'Portero'],['Central rival',4,'Defensa'],['Lateral rival',2,'Lateral'],['Mediocentro rival',6,'Mediocentro'],['Delantero rival',9,'Delantero']].map((p,i)=>({id:'r'+i,name:p[0],number:p[1],position:p[2],status:'available',notes:'',photo:''}));
   s.rivalColors ||= {primary:'#20232b',secondary:'#ffbd35'};
   s.club ||= 'UD Tamaraceite';
+  s.crest ??= '';
   s.match.time ??= '';s.match.meet ??= '';s.match.notice ??= '';
   // called = ids convocados. undefined significa "aún no elegidos": la primera
   // vez se propone automáticamente a todos los disponibles.
@@ -78,6 +79,54 @@ Object.entries(MATCH_FIELDS).forEach(([id,k])=>{$('#'+id).onchange=e=>{state.mat
 ['rivalPrimary','rivalSecondary'].forEach(id=>$('#'+id).oninput=e=>{state.rivalColors[id==='rivalPrimary'?'primary':'secondary']=e.target.value;persist();renderPitch()});
 refreshMatchInputs();
 $('#saveBtn').onclick=()=>persist(true);$('#printBtn').onclick=()=>{document.body.classList.add('export-all');window.print();setTimeout(()=>document.body.classList.remove('export-all'),500)};window.onafterprint=()=>document.body.classList.remove('export-all');
+/* ===== Identidad del club: escudo y nombre =====
+   El escudo se guarda dentro de los datos de la pizarra, así que cada clave
+   tiene el suyo y viaja a todos sus dispositivos. Para una venta personalizada
+   basta con cambiar el archivo de DEFAULT_CREST: será el que vea quien todavía
+   no haya subido ninguno, incluida la pantalla de acceso. */
+const DEFAULT_CREST='escudos/Escudo-UD-Tamaraceite.png';
+const crestSrc=()=>state.crest||DEFAULT_CREST;
+function applyBrand(){
+  const src=crestSrc(),nombre=state.club||'Equipo';
+  // Solo se reasigna si cambia: renderAll() se llama a menudo y volver a poner
+  // el mismo data URL hace parpadear la imagen.
+  ['#brandCrest','#matchCrest'].forEach(sel=>{const el=$(sel);if(el.getAttribute('src')!==src)el.setAttribute('src',src)});
+  if($('#brandName').textContent!==nombre.toUpperCase())$('#brandName').textContent=nombre.toUpperCase();
+  if($('#matchClub').textContent!==nombre)$('#matchClub').textContent=nombre
+}
+function openClub(){
+  $('#clubName').value=state.club||'';
+  $('#crestPreview').src=crestSrc();
+  $('#crestReset').style.display=state.crest?'block':'none';
+  $('#clubDialog').showModal()
+}
+$('#clubBtn').onclick=openClub;
+$('.brand').onclick=e=>{e.preventDefault();openClub()};
+$$('.close-club').forEach(b=>b.onclick=()=>$('#clubDialog').close());
+$('#clubName').oninput=()=>{state.club=$('#clubName').value.trim();applyBrand();persist()};
+$('#crestReset').onclick=()=>{state.crest='';$('#crestPreview').src=crestSrc();$('#crestReset').style.display='none';applyBrand();persist(true)};
+$('#crestInput').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  e.target.value='';
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onerror=()=>showToast('No se ha podido leer la imagen.',4000);
+    img.onload=()=>{
+      // PNG y sin fondo pintado, al revés que las fotos de jugador: un escudo en
+      // JPEG saldría con un recuadro blanco sobre el morado de la barra lateral.
+      const max=220,r=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(img.width*r));c.height=Math.max(1,Math.round(img.height*r));
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      state.crest=c.toDataURL('image/png');
+      $('#crestPreview').src=state.crest;$('#crestReset').style.display='block';
+      applyBrand();persist(true)
+    };
+    img.src=ev.target.result
+  };
+  reader.readAsDataURL(f)
+};
+
 /* ===== Convocatoria para WhatsApp =====
    El entrenador ya tiene su grupo del equipo, así que la app no envía nada:
    compone el mensaje y lo abre en SU WhatsApp. Sin API de Meta, sin coste por
@@ -139,7 +188,7 @@ $$('.close-call').forEach(b=>b.onclick=()=>$('#callDialog').close());
   state.club=$('#callTeam').value.trim();
   state.match.meet=$('#callMeet').value;
   state.match.notice=$('#callNotice').value.trim();
-  persist();refreshCallPreview()
+  applyBrand();persist();refreshCallPreview()
 });
 $('#callAll').onclick=()=>{state.match.called=state.players.map(p=>p.id);persist();renderCallList();refreshCallPreview()};
 $('#callNone').onclick=()=>{state.match.called=[];persist();renderCallList();refreshCallPreview()};
@@ -153,7 +202,7 @@ $('#callCopy').onclick=async()=>{
   try{await navigator.clipboard.writeText($('#callPreview').value);showToast('Mensaje copiado')}
   catch(e){$('#callPreview').select();showToast('Pulsa Ctrl+C para copiar el mensaje',3000)}
 };
-function renderAll(){renderBoard();renderSquad();renderRivals()}renderAll();
+function renderAll(){applyBrand();renderBoard();renderSquad();renderRivals()}renderAll();
 
 /* ===== Sincronización en la nube (Firebase Firestore) ===== */
 const FIREBASE_CONFIG={apiKey:'AIzaSyBrysK7UDFDW_XpY1tSFnrQSX9rD8mbrrQ',authDomain:'pizarra-tamara-2026.firebaseapp.com',projectId:'pizarra-tamara-2026',storageBucket:'pizarra-tamara-2026.firebasestorage.app',messagingSenderId:'886197824457',appId:'1:886197824457:web:4beab9509451daac1c9618'};

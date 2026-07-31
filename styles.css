@@ -25,7 +25,7 @@
 
 /* ===== Ficha de jugador: la cabecera y los botones quedan siempre a la vista ===== */
 dialog[open]{display:flex;max-height:92vh;max-height:92dvh;overflow:hidden}
-#playerForm,#callForm{display:flex;flex-direction:column;width:100%;min-height:0}
+#playerForm,#callForm,#clubForm{display:flex;flex-direction:column;width:100%;min-height:0}
 .modal-head,.photo-edit,.modal-actions{flex:0 0 auto}
 .form-grid,.modal-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .modal-actions{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
@@ -63,14 +63,31 @@ dialog[open]{display:flex;max-height:92vh;max-height:92dvh;overflow:hidden}
    no había forma de descargar una copia ni de cambiar de clave. Se deja el pie
    con solo los iconos. Por debajo de 680px la barra vuelve a ser un cajón
    completo, así que ahí sí se ven las etiquetas. */
+/* ===== Escudo del club =====
+   Sustituye a las formas dibujadas con CSS (.crest, .auth-crest, .mini-crest).
+   object-fit:contain para que un escudo de cualquier proporción no se deforme. */
+.crest-img{display:block;height:46px;width:auto;max-width:46px;object-fit:contain;flex:none}
+.auth-crest-img{display:block;height:72px;width:auto;max-width:72px;object-fit:contain;margin:0 auto}
+.mini-crest-img{height:30px;width:auto;max-width:30px;object-fit:contain;flex:none}
+.brand{cursor:pointer}
+.club-edit{display:flex;gap:16px;align-items:center;padding:18px 0 6px}
+.club-preview{width:82px;height:82px;flex:none;border-radius:12px;background:#f4f2f8;display:grid;place-items:center;position:relative;cursor:pointer;padding:8px}
+.club-preview img{max-width:100%;max-height:100%;object-fit:contain}
+.club-preview i{position:absolute;right:-4px;bottom:-4px;background:var(--purple);color:white;border-radius:50%;width:23px;height:23px;display:grid;place-items:center;font-size:10px;font-style:normal}
+.club-edit strong,.club-edit small{display:block}
+.club-edit small{color:#928c9b;font-size:9px;margin-top:2px}
+.club-edit .text-btn{display:block;padding:8px 0 0;font-size:10px}
+.club-fields{padding-top:6px}
+
 /* ===== Convocatoria ===== */
-.close-call{border:0;background:none;font-size:22px;cursor:pointer;color:inherit}
+.close-call,.close-club{border:0;background:none;font-size:22px;cursor:pointer;color:inherit}
+.modal-actions .close-club{font-size:12px}
 .modal-scroll{padding:0 24px 18px}
-.call-fields{display:grid;grid-template-columns:1fr 120px;gap:13px;padding:16px 0 4px}
-.call-fields label{font-size:10px;font-weight:700}
-.call-fields .full{grid-column:1/-1}
-.call-fields input{display:block;width:100%;border:1px solid #ddd9e3;border-radius:7px;padding:9px;margin-top:5px;outline:none}
-.call-fields input:focus{border-color:var(--purple)}
+.call-fields,.club-fields{display:grid;grid-template-columns:1fr 120px;gap:13px;padding:16px 0 4px}
+.call-fields label,.club-fields label{font-size:10px;font-weight:700}
+.call-fields .full,.club-fields .full{grid-column:1/-1}
+.call-fields input,.club-fields input{display:block;width:100%;border:1px solid #ddd9e3;border-radius:7px;padding:9px;margin-top:5px;outline:none}
+.call-fields input:focus,.club-fields input:focus{border-color:var(--purple)}
 .call-list-head{display:flex;align-items:center;justify-content:space-between;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
 .call-list-head b{color:var(--purple)}
 .call-list-head .text-btn{padding:4px 9px;font-size:10px}
@@ -85,7 +102,9 @@ dialog[open]{display:flex;max-height:92vh;max-height:92dvh;overflow:hidden}
 #callPreview:focus{border-color:var(--purple)}
 @media(max-width:680px){
   .modal-scroll{padding:0 18px 16px}
-  .call-fields{grid-template-columns:1fr;gap:12px}
+  .call-fields,.club-fields{grid-template-columns:1fr;gap:12px}
+  .club-edit{gap:13px}
+  .club-preview{width:68px;height:68px}
   .call-row{padding:11px 0}
   .call-row input{width:20px;height:20px}
   /* El textarea a 16px evita que iOS haga zoom al tocarlo */
