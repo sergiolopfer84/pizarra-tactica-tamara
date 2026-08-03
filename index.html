@@ -33,6 +33,7 @@
       <nav>
         <button class="nav-item active" data-view="board"><span class="icon">▦</span><span>Pizarra táctica</span></button>
         <button class="nav-item" data-view="squad"><span class="icon">♙</span><span>Plantilla</span><b id="squadCount">0</b></button>
+        <button class="nav-item" data-view="training"><span class="icon">⚑</span><span>Entrenamientos</span><b id="trainingCount">0</b></button>
         <button class="nav-item" data-view="rival"><span class="icon">♟</span><span>Rival</span><b id="rivalCount">0</b></button>
       </nav>
       <div class="sidebar-foot">
@@ -69,6 +70,8 @@
           <div class="match-meta"><label>HORA</label><input id="matchTime" type="time" /></div>
           <div class="match-meta"><label>LUGAR</label><input id="venue" value="Juan Guedes" /></div>
         </div>
+        <div class="scoreboard" id="scoreboard"></div>
+        <div class="live-bar" id="liveBar"></div>
 
         <div class="tactic-tabs-wrap"><div class="tactic-tabs" id="tacticTabs"></div><button id="addTactic" class="add-tab">＋ Nueva variante</button></div>
 
@@ -122,6 +125,10 @@
         <div class="squad-summary"><div><span class="summary-icon purple">♙</span><p><b id="totalPlayers">0</b><small>Jugadores</small></p></div><div><span class="summary-icon green">✓</span><p><b id="fitPlayers">0</b><small>Disponibles</small></p></div><div><span class="summary-icon amber">!</span><p><b id="doubtPlayers">0</b><small>En duda</small></p></div><div><span class="summary-icon red">＋</span><p><b id="outPlayers">0</b><small>Bajas</small></p></div></div>
         <div id="playerGrid" class="player-grid"></div>
       </section>
+      <section id="trainingView" class="view">
+        <div class="squad-toolbar"><div class="search">⌕ <input id="trainingSearch" placeholder="Buscar sesión, estación o ejercicio…" /></div><button class="btn primary" id="newTraining">＋ Nuevo entrenamiento</button></div>
+        <div id="trainingList" class="training-list"></div>
+      </section>
       <section id="rivalView" class="view">
         <div class="squad-toolbar"><div class="search">⌕ <input id="rivalSearch" placeholder="Buscar jugador rival…" /></div><button class="btn primary" id="newRival">＋ Añadir rival</button></div>
         <div class="rival-header-card"><div class="rival-badge">R</div><div><span class="eyebrow">PRÓXIMO ADVERSARIO</span><h2 id="rivalTeamName">Equipo rival</h2><p>Prepara su posible once y colócalo sobre la pizarra.</p></div><div class="rival-colors"><label>COLOR PRINCIPAL<input id="rivalPrimary" type="color" value="#20232b"></label><label>COLOR SECUNDARIO<input id="rivalSecondary" type="color" value="#ffbd35"></label></div></div>
@@ -174,6 +181,54 @@
       <div class="modal-actions"><button type="button" class="btn secondary" id="callCopy">Copiar texto</button><button type="button" class="btn primary" id="callSend">Enviar por WhatsApp</button></div>
     </div>
   </dialog>
+  <dialog id="trainingDialog">
+    <form method="dialog" id="trainingForm">
+      <div class="modal-head"><div><span class="eyebrow">SESIÓN DE ENTRENAMIENTO</span><h2 id="trainingModalTitle">Nuevo entrenamiento</h2></div><button value="cancel" class="close-training" type="button">×</button></div>
+      <div class="modal-scroll">
+        <div class="training-fields">
+          <label>Nombre<input id="trainingName" placeholder="Ej. Circuito de conos" /></label>
+          <label>Fecha<input id="trainingDate" type="date" /></label>
+          <label class="full">Notas de la sesión<textarea id="trainingNotes" rows="2" placeholder="Objetivo, material, duración…"></textarea></label>
+        </div>
+        <div class="stations-head"><span class="eyebrow">ESTACIONES · <b id="stationCount">0</b></span><button type="button" class="text-btn" id="addStation">＋ Añadir estación</button></div>
+        <div id="stationsList"></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn secondary close-training">Cancelar</button><button type="submit" class="btn primary">Guardar entrenamiento</button></div>
+    </form>
+  </dialog>
+  <dialog id="trainingShareDialog">
+    <div id="trainingShareForm">
+      <div class="modal-head"><div><span class="eyebrow">COMPARTIR SESIÓN</span><h2 id="shareTrainingTitle">Entrenamiento</h2></div><button class="close-share" type="button">×</button></div>
+      <div class="modal-scroll">
+        <span class="eyebrow call-preview-label">MENSAJE · puedes editarlo antes de enviar</span>
+        <textarea id="trainingPreview" rows="12"></textarea>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn secondary" id="trainingCopy">Copiar texto</button><button type="button" class="btn primary" id="trainingSend">Enviar por WhatsApp</button></div>
+    </div>
+  </dialog>
+  <dialog id="reportDialog">
+    <div id="reportForm">
+      <div class="modal-head"><div><span class="eyebrow">RESUMEN DEL PARTIDO</span><h2>Informe</h2></div><button class="close-report" type="button">×</button></div>
+      <div class="modal-scroll" id="reportBody"></div>
+      <div class="modal-actions"><button type="button" class="btn secondary" id="reportCopy">Copiar</button><button type="button" class="btn primary" id="reportSend">Enviar por WhatsApp</button><button type="button" class="btn secondary close-report">Cerrar</button></div>
+    </div>
+  </dialog>
+  <dialog id="goalDialog">
+    <form method="dialog" id="goalForm">
+      <div class="modal-head"><div><span class="eyebrow" id="goalEyebrow">GOL</span><h2>Asignar gol</h2></div><button value="cancel" class="close-goal" type="button">×</button></div>
+      <div class="form-grid">
+        <label class="full">Goleador<select id="goalScorer"></select></label>
+        <label class="full">Asistencia<select id="goalAssist"></select></label>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn secondary close-goal">Cancelar</button><button type="submit" class="btn primary">Guardar gol</button></div>
+    </form>
+  </dialog>
+  <div id="playerMenu" class="ctx-menu hidden" role="menu">
+    <button type="button" data-act="sub"><span class="ic">⇄</span>Sustituir</button>
+    <button type="button" data-act="edit"><span class="ic">✎</span>Editar ficha</button>
+    <button type="button" data-act="goal"><span class="ic">⚽</span>Asignar gol</button>
+    <div class="ctx-events" id="ctxEvents" style="display:none"></div>
+  </div>
   <div id="toast" class="toast">Cambios guardados</div>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
