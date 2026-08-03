@@ -35,6 +35,7 @@
         <button class="nav-item" data-view="squad"><span class="icon">♙</span><span>Plantilla</span><b id="squadCount">0</b></button>
         <button class="nav-item" data-view="training"><span class="icon">⚑</span><span>Entrenamientos</span><b id="trainingCount">0</b></button>
         <button class="nav-item" data-view="rival"><span class="icon">♟</span><span>Rival</span><b id="rivalCount">0</b></button>
+        <button class="nav-item" data-view="report"><span class="icon">▤</span><span>Informe</span><b id="reportCount">0</b></button>
       </nav>
       <div class="sidebar-foot">
         <div class="season"><span>Temporada</span><strong>2026 / 27</strong></div>
@@ -134,6 +135,35 @@
         <div class="rival-header-card"><div class="rival-badge">R</div><div><span class="eyebrow">PRÓXIMO ADVERSARIO</span><h2 id="rivalTeamName">Equipo rival</h2><p>Prepara su posible once y colócalo sobre la pizarra.</p></div><div class="rival-colors"><label>COLOR PRINCIPAL<input id="rivalPrimary" type="color" value="#20232b"></label><label>COLOR SECUNDARIO<input id="rivalSecondary" type="color" value="#ffbd35"></label></div></div>
         <div id="rivalGrid" class="player-grid"></div>
       </section>
+
+      <section id="reportView" class="view">
+        <div class="rep-top">
+          <div class="rep-score" id="repScore"></div>
+          <div class="rep-top-actions">
+            <button class="btn secondary" id="repPng" title="Descargar el campo como imagen">🖼 <span>Campo PNG</span></button>
+            <button class="btn secondary" id="repPngFull" title="Descargar campo + tabla de equipo">🖼 <span>Resumen PNG</span></button>
+            <button class="btn secondary" id="repCopy">📋 <span>Copiar texto</span></button>
+            <button class="btn primary" id="repSend">📤 <span>Enviar por WhatsApp</span></button>
+          </div>
+        </div>
+        <div class="rep-grid">
+          <section class="rep-card rep-map-card">
+            <div class="rep-card-head"><span class="eyebrow">MAPA DEL PARTIDO</span><h3>Zonas del campo</h3><p class="rep-hint" id="repMetricName"></p></div>
+            <label class="rep-metric-label">Métrica<select id="repMetric"></select></label>
+            <button type="button" class="rep-filter-toggle" id="repFilterToggle" aria-expanded="false">⚙ Filtros</button>
+            <div class="rep-filters" id="repFilters" hidden></div>
+            <div class="rep-field-wrap" id="repFieldWrap"></div>
+            <div class="rep-legend" id="repLegend"></div>
+            <div class="rep-zone-detail" id="repZoneDetail"></div>
+          </section>
+          <div class="rep-side">
+            <section class="rep-card" id="repTeam"></section>
+            <section class="rep-card" id="repSummary"></section>
+          </div>
+        </div>
+        <section class="rep-card" id="repPlayers"></section>
+        <section class="rep-card" id="repClassic"></section>
+      </section>
     </main>
   </div>
 
@@ -206,11 +236,11 @@
       <div class="modal-actions"><button type="button" class="btn secondary" id="trainingCopy">Copiar texto</button><button type="button" class="btn primary" id="trainingSend">Enviar por WhatsApp</button></div>
     </div>
   </dialog>
-  <dialog id="reportDialog">
-    <div id="reportForm">
-      <div class="modal-head"><div><span class="eyebrow">RESUMEN DEL PARTIDO</span><h2>Informe</h2></div><button class="close-report" type="button">×</button></div>
-      <div class="modal-scroll" id="reportBody"></div>
-      <div class="modal-actions"><button type="button" class="btn secondary" id="reportCopy">Copiar</button><button type="button" class="btn primary" id="reportSend">Enviar por WhatsApp</button><button type="button" class="btn secondary close-report">Cerrar</button></div>
+  <dialog id="statsDialog">
+    <div id="statsForm">
+      <div class="modal-head"><div><span class="eyebrow">ESTADÍSTICAS DEL PARTIDO</span><h2 id="statsTitle">Jugador</h2></div><button class="close-stats" type="button">×</button></div>
+      <div class="modal-scroll" id="statsBody"></div>
+      <div class="modal-actions"><button type="button" class="btn primary close-stats">Cerrar</button></div>
     </div>
   </dialog>
   <dialog id="goalDialog">
@@ -223,13 +253,11 @@
       <div class="modal-actions"><button type="button" class="btn secondary close-goal">Cancelar</button><button type="submit" class="btn primary">Guardar gol</button></div>
     </form>
   </dialog>
-  <div id="playerMenu" class="ctx-menu hidden" role="menu">
-    <button type="button" data-act="sub"><span class="ic">⇄</span>Sustituir</button>
-    <button type="button" data-act="edit"><span class="ic">✎</span>Editar ficha</button>
-    <button type="button" data-act="goal"><span class="ic">⚽</span>Asignar gol</button>
-    <div class="ctx-events" id="ctxEvents" style="display:none"></div>
-  </div>
+  <div id="playerMenu" class="ctx-menu hidden" role="menu"></div>
+  <div id="teamMenu" class="team-menu hidden" role="dialog" aria-label="Eventos de equipo"></div>
+  <button id="teamFab" class="team-fab hidden" type="button" title="Registrar evento de equipo">⚑<span> Equipo</span></button>
   <div id="toast" class="toast">Cambios guardados</div>
+  <div id="undoToast" class="undo-toast"></div>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="app.js"></script>

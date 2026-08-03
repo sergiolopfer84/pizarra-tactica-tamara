@@ -14,5 +14,16 @@ service cloud.firestore {
                    && request.resource.data.data is string
                    && request.resource.data.data.size() < 950000;
     }
+    // Eventos del partido: un documento por evento, dentro de la pizarra. Así el
+    // documento grande no crece sin control y dos dispositivos con la misma clave
+    // pueden registrar a la vez sin pisarse. Para llegar hasta aquí sigue habiendo
+    // que conocer el hash de la clave, igual que para la pizarra.
+    match /pizarras/{boardId}/eventos/{eventoId} {
+      allow read: if true;
+      allow delete: if true;
+      allow create, update: if request.resource != null
+                            && request.resource.data.size() < 30
+                            && request.resource.data.tipo is string;
+    }
   }
 }
