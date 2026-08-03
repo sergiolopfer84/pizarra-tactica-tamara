@@ -5,3 +5,5 @@ firebase-debug.log
 # Copias de seguridad de las pizarras: contienen datos reales de jugadores
 # (nombres, notas, fotos). El repositorio es público: nunca deben subirse.
 backups/
+# Claves de acceso en claro que usa copia-pizarras.ps1
+claves.txt

@@ -4,7 +4,11 @@ service cloud.firestore {
     // Cada pizarra vive en un documento cuyo ID es el hash de la clave de acceso.
     // Solo quien conoce la clave puede llegar a su documento.
     match /pizarras/{boardId} {
-      allow read: if true;
+      // "read" concede get Y list, y list no necesita ningún ID: basta con pedir
+      // la colección para descargarse todas las pizarras sin saber ninguna clave.
+      // Con solo get hay que conocer el hash exacto, que es lo que la clave protege.
+      allow get: if true;
+      allow list: if false;
       allow write: if request.resource != null
                    && request.resource.data.keys().hasOnly(['data', 'writer', 'updatedAt'])
                    && request.resource.data.data is string
