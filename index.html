@@ -84,19 +84,31 @@
           </aside>
           <section class="pitch-panel">
             <div class="pitch-toolbar">
-              <div><label>FORMACIÓN</label><select id="formation"><option>4-3-3</option><option>4-2-3-1</option><option>4-4-2</option><option>3-5-2</option><option>3-4-3</option><option>Libre</option></select></div>
+              <div class="tb-formation"><label>FORMACIÓN</label><select id="formation"><option>4-3-3</option><option>4-2-3-1</option><option>4-4-2</option><option>3-5-2</option><option>3-4-3</option><option>Libre</option></select></div>
               <span class="tool-divider"></span>
-              <button class="tool active" data-tool="move" title="Mover jugadores">↖ <span>Mover</span></button>
-              <button class="tool" data-tool="arrow" title="Flecha recta">➜ <span>Flecha</span></button>
-              <button class="tool" data-tool="curve" title="Flecha curva">↪ <span>Curva</span></button>
-              <button class="tool" data-tool="circle" title="Dibujar círculo">◯ <span>Círculo</span></button>
-              <button class="tool" data-tool="highlight" title="Resaltar jugador">◉ <span>Marcar</span></button>
-              <button class="tool substitution-tool" data-tool="sub" title="Realizar sustitución">⇄ <span>Cambio</span></button>
-              <button class="tool" data-tool="pen" title="Dibujo libre">✎ <span>Bolígrafo</span></button>
-              <button class="tool" data-tool="text" title="Añadir texto">T <span>Texto</span></button>
-              <button class="tool danger" data-tool="remove" title="Quitar elemento seleccionado">− <span>Quitar</span></button>
-              <button class="tool danger" id="clearArrows" title="Borrar indicaciones">⌫</button>
-              <button class="tool" id="clearPitch" title="Quitar jugadores del campo">Limpiar</button>
+              <button class="tool active" type="button" data-tool="move" title="Mover jugadores"><i class="t-ico">↖</i><span class="t-name">Mover</span></button>
+              <div class="tool-menu" data-menu="marks">
+                <button class="tool tool-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Marcas" title="Marcas: flecha, curva, círculo y rectángulo"><i class="t-ico">➜</i><span class="t-name">Flecha</span><b class="t-caret">▾</b></button>
+                <div class="tool-dropdown" role="menu" hidden>
+                  <button class="tool-option" type="button" role="menuitem" data-tool="arrow"><i>➜</i><span>Flecha</span></button>
+                  <button class="tool-option" type="button" role="menuitem" data-tool="curve"><i>↝</i><span>Flecha curva</span></button>
+                  <button class="tool-option" type="button" role="menuitem" data-tool="circle"><i>◯</i><span>Círculo</span></button>
+                  <button class="tool-option" type="button" role="menuitem" data-tool="rect"><i>▭</i><span>Rectángulo</span></button>
+                </div>
+              </div>
+              <div class="tool-menu" data-menu="annot">
+                <button class="tool tool-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Anotar" title="Anotar: texto, bolígrafo, marcar jugador y cambio"><i class="t-ico">T</i><span class="t-name">Texto</span><b class="t-caret">▾</b></button>
+                <div class="tool-dropdown" role="menu" hidden>
+                  <button class="tool-option" type="button" role="menuitem" data-tool="text"><i>T</i><span>Texto</span></button>
+                  <button class="tool-option" type="button" role="menuitem" data-tool="pen"><i>✎</i><span>Bolígrafo</span></button>
+                  <button class="tool-option" type="button" role="menuitem" data-tool="highlight"><i>◉</i><span>Marcar jugador</span></button>
+                  <button class="tool-option substitution-tool" type="button" role="menuitem" data-tool="sub"><i>⇄</i><span>Cambio</span></button>
+                </div>
+              </div>
+              <span class="tool-divider"></span>
+              <button class="tool" type="button" id="undoBtn" title="Deshacer la última acción sobre el campo"><i class="t-ico">↶</i><span class="t-name">Deshacer</span></button>
+              <button class="tool danger" type="button" data-tool="remove" title="Goma: borra el elemento que toques"><i class="t-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 20.5H21"/><path d="M15.6 3.4 3.4 15.6a2 2 0 0 0 0 2.8l2.2 2.2a2 2 0 0 0 2.8 0L20.6 8.4a2 2 0 0 0 0-2.8l-2.2-2.2a2 2 0 0 0-2.8 0Z"/><path d="m9 9 6 6"/></svg></i><span class="t-name">Borrar</span></button>
+              <button class="tool danger" type="button" id="clearAll" title="Vaciar el campo por completo"><i class="t-ico">⊗</i><span class="t-name">Limpiar</span></button>
             </div>
             <div class="pitch-wrap">
               <div class="pitch" id="pitch">

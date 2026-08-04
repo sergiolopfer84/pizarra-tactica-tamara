@@ -129,39 +129,183 @@ $('#addTactic').onclick=()=>{const n=state.tactics.length+1,id='t'+Date.now();st
 function renderBench(){const placed=new Set(tactic().placed.map(x=>x.playerId));const available=state.players.filter(p=>!placed.has(p.id));$('#availableCount').textContent=available.length;$('#benchList').innerHTML=available.map(p=>`<button class="bench-player own-choice" data-id="${p.id}"><span class="bench-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</span><p><strong>${esc(p.name)}</strong><small>${esc(p.position)} · ${esc(p.number)}</small></p><i class="status-dot ${p.status}"></i></button>`).join('')||'<p class="helper">Toda la plantilla está en el campo.</p>';$$('.own-choice').forEach(b=>b.onclick=()=>benchAction(b.dataset.id,'own'));}
 function renderRivalBench(){const placed=new Set(tactic().opponentPlaced.map(x=>x.playerId)),available=state.rivals.filter(p=>!placed.has(p.id));$('#rivalAvailableCount').textContent=available.length;$('#rivalBenchList').innerHTML=available.map(p=>`<button class="bench-player rival-choice" data-id="${p.id}"><span class="bench-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</span><p><strong>${esc(p.name)}</strong><small>${esc(p.position)} · ${esc(p.number)}</small></p></button>`).join('')||'<p class="helper">Todo el rival está en el campo.</p>';$$('.rival-choice').forEach(b=>b.onclick=()=>benchAction(b.dataset.id,'rival'))}
 function benchAction(id,team){if(tool==='sub'){if(!substitutionPending){showToast('Primero selecciona quién sale del campo');return}if(substitutionPending.team!==team){showToast('Elige un jugador del mismo equipo');return}completeSubstitution(id);return}placePlayer(id,team)}
-function placePlayer(id,team='own'){const t=tactic(),list=team==='rival'?t.opponentPlaced:t.placed,spots=formations[t.formation]||[];let pos=team==='rival'?[15+list.length%4*23,15+Math.floor(list.length/4)*12]:(spots[list.length]||[50,50]);list.push({playerId:id,x:pos[0],y:pos[1]});persist();renderBoard()}
+function placePlayer(id,team='own'){pushUndo();const t=tactic(),list=team==='rival'?t.opponentPlaced:t.placed,spots=formations[t.formation]||[];let pos=team==='rival'?[15+list.length%4*23,15+Math.floor(list.length/4)*12]:(spots[list.length]||[50,50]);list.push({playerId:id,x:pos[0],y:pos[1]});persist();renderBoard()}
 function renderPitch(){const t=tactic();$('#formation').value=t.formation;const own=t.placed.map(pp=>playerHTML(pp,state.players,'own')).join(''),rival=t.opponentPlaced.map(pp=>playerHTML(pp,state.rivals,'rival')).join('');$('#pitchPlayers').innerHTML=own+rival;$('#pitchHint').style.display=(t.placed.length+t.opponentPlaced.length)?'none':'block';$$('.pitch-player').forEach(el=>{el.onpointerdown=startPlayerDrag;el.oncontextmenu=e=>{e.preventDefault();e.stopPropagation();openContextMenu(e.clientX,e.clientY,el.dataset.id,el.dataset.team)}});renderArrows()}
 function playerHTML(pp,roster,team){const p=roster.find(x=>x.id===pp.playerId);if(!p)return'';const marked=tactic().highlighted.includes(team+':'+p.id),selected=substitutionPending&&substitutionPending.team===team&&substitutionPending.id===p.id;const rivalStyle=team==='rival'?`--rival-primary:${state.rivalColors.primary};--rival-secondary:${state.rivalColors.secondary}`:'';const liveMin=(team==='own'&&state.live&&state.live.started&&!state.live.finished)?`<u class="live-min" data-min="${p.id}">${Math.floor((state.live.minutes[p.id]||0)/60)}′</u>`:'';return `<div class="pitch-player ${team==='rival'?'rival':''} ${marked?'highlighted':''} ${selected?'sub-selected':''}" data-id="${p.id}" data-team="${team}" style="left:${pp.x}%;top:${pp.y}%;${rivalStyle}"><div class="player-token" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}<b>${esc(p.number||'-')}</b>${liveMin}</div><small>${esc(p.name.split(' ')[0])}</small></div>`}
-function startPlayerDrag(e){const el=e.currentTarget,id=el.dataset.id,team=el.dataset.team,key=team+':'+id;if(tool==='highlight'){e.preventDefault();const h=tactic().highlighted,i=h.indexOf(key);i>=0?h.splice(i,1):h.push(key);persist();renderPitch();return}if(tool==='sub'){e.preventDefault();substitutionPending={id,team};renderPitch();showToast('Ahora selecciona quién entra desde el banquillo',2000);return}if(tool==='remove'){e.preventDefault();removePlayerFromPitch(id,team);return}if(tool!=='move')return;if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();const pitch=$('#pitch'),list=team==='rival'?tactic().opponentPlaced:tactic().placed,pp=list.find(x=>x.playerId===id);el.setPointerCapture(e.pointerId);
+function startPlayerDrag(e){const el=e.currentTarget,id=el.dataset.id,team=el.dataset.team,key=team+':'+id;if(tool==='highlight'){e.preventDefault();pushUndo();const h=tactic().highlighted,i=h.indexOf(key);i>=0?h.splice(i,1):h.push(key);persist();renderPitch();afterAction();return}if(tool==='sub'){e.preventDefault();substitutionPending={id,team};renderPitch();showToast('Ahora selecciona quién entra desde el banquillo',2000);return}if(tool==='remove'){e.preventDefault();removePlayerFromPitch(id,team);return}if(tool!=='move')return;if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();const pitch=$('#pitch'),list=team==='rival'?tactic().opponentPlaced:tactic().placed,pp=list.find(x=>x.playerId===id);el.setPointerCapture(e.pointerId);
   // Pulsación larga (táctil) abre el menú contextual; en ratón lo hace el clic
   // derecho vía oncontextmenu. Si el dedo se mueve, es un arrastre y se cancela.
-  let lpTimer=null,sx=e.clientX,sy=e.clientY;
+  let lpTimer=null,sx=e.clientX,sy=e.clientY,movido=false;
   if(e.pointerType!=='mouse')lpTimer=setTimeout(()=>{lpTimer=null;el.onpointermove=null;el.onpointerup=null;try{el.releasePointerCapture(e.pointerId)}catch(_){}openContextMenu(sx,sy,id,team)},480);
-  el.onpointermove=ev=>{if(lpTimer&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>8){clearTimeout(lpTimer);lpTimer=null}const r=pitch.getBoundingClientRect();pp.x=Math.max(3,Math.min(97,(ev.clientX-r.left)/r.width*100));pp.y=Math.max(3,Math.min(97,(ev.clientY-r.top)/r.height*100));el.style.left=pp.x+'%';el.style.top=pp.y+'%'};el.onpointerup=()=>{if(lpTimer){clearTimeout(lpTimer);lpTimer=null}el.onpointermove=null;persist();renderBench();renderRivalBench()}}
-function completeSubstitution(inId){const t=tactic(),team=substitutionPending.team,list=team==='rival'?t.opponentPlaced:t.placed,spot=list.find(x=>x.playerId===substitutionPending.id);if(!spot)return;const outId=spot.playerId;spot.playerId=inId;t.substitutions.push({x:spot.x,y:spot.y,team,outId,inId});if(state.live.started&&!state.live.finished&&team==='own')crearEvento({tipo:'sub',ambito:'sistema',team,outId,inId});substitutionPending=null;setTool('move');persist();renderBoard();showToast('Cambio realizado')}
-function removePlayerFromPitch(id,team){const t=tactic(),key=team+':'+id;if(team==='rival')t.opponentPlaced=t.opponentPlaced.filter(x=>x.playerId!==id);else t.placed=t.placed.filter(x=>x.playerId!==id);t.highlighted=t.highlighted.filter(x=>x!==key);persist();renderBoard()}
-function renderArrows(){const t=tactic();$('#arrows').innerHTML=t.arrows.map(a=>a.curve?`<path d="M ${a.x1} ${a.y1} Q ${a.cx} ${a.cy} ${a.x2} ${a.y2}"/>`:`<path d="M ${a.x1} ${a.y1} L ${a.x2} ${a.y2}"/>`).join('');$('#graphics').innerHTML=t.graphics.map(g=>g.type==='circle'?`<circle cx="${g.cx}" cy="${g.cy}" r="${g.r}"/>`:`<path d="${g.d}"/>`).join('');$('#textLayer').innerHTML=t.labels.map((l,i)=>`<span class="pitch-text" data-label="${i}" style="left:${l.x}%;top:${l.y}%">${esc(l.text)}</span>`).join('');$('#substitutionLayer').innerHTML=t.substitutions.map((s,i)=>`<span class="sub-badge" data-sub="${i}" style="left:${s.x}%;top:${s.y}%"><i class="in">↗</i><i class="out">↙</i></span>`).join('');$$('[data-label]').forEach(x=>x.onclick=()=>{if(tool==='remove'){t.labels.splice(+x.dataset.label,1);persist();renderArrows()}});$$('[data-sub]').forEach(x=>x.onclick=()=>{if(tool==='remove'){t.substitutions.splice(+x.dataset.sub,1);persist();renderArrows()}})}
-$('#pitch').onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(!['arrow','curve','circle','pen','text','remove'].includes(tool)||e.target.closest('.pitch-player,.pitch-text,.sub-badge'))return;const r=$('#pitch').getBoundingClientRect(),x=(e.clientX-r.left)/r.width*1000,y=(e.clientY-r.top)/r.height*1400;if(tool==='remove'){removeNearestAnnotation(x,y);return}if(tool==='text'){const value=prompt('Escribe la indicación:');if(value){tactic().labels.push({text:value.slice(0,60),x:x/10,y:y/14});persist();renderArrows();resetToolIfOneShot()}return}drawing={x1:x,y1:y,x2:x,y2:y,points:[[x,y]]};$('#pitch').setPointerCapture(e.pointerId)};
-function removeNearestAnnotation(x,y){const t=tactic(),candidates=[];t.arrows.forEach((a,i)=>candidates.push({kind:'arrows',i,d:Math.hypot(x-(a.x1+a.x2)/2,y-(a.y1+a.y2)/2)}));t.graphics.forEach((g,i)=>{let gx=g.cx,gy=g.cy;if(g.type==='pen'){const nums=(g.d.match(/[\d.]+/g)||[]).map(Number);gx=nums[nums.length-2];gy=nums[nums.length-1]}candidates.push({kind:'graphics',i,d:Math.hypot(x-gx,y-gy)})});t.labels.forEach((l,i)=>candidates.push({kind:'labels',i,d:Math.hypot(x-l.x*10,y-l.y*14)}));t.substitutions.forEach((s,i)=>candidates.push({kind:'substitutions',i,d:Math.hypot(x-s.x*10,y-s.y*14)}));const nearest=candidates.sort((a,b)=>a.d-b.d)[0];if(nearest&&nearest.d<180){t[nearest.kind].splice(nearest.i,1);persist();renderArrows()}}
-$('#pitch').onpointermove=e=>{if(!drawing)return;const r=$('#pitch').getBoundingClientRect();drawing.x2=(e.clientX-r.left)/r.width*1000;drawing.y2=(e.clientY-r.top)/r.height*1400;if(tool==='pen')drawing.points.push([drawing.x2,drawing.y2]);let d;if(tool==='circle'){const radius=Math.hypot(drawing.x2-drawing.x1,drawing.y2-drawing.y1);d=`M ${drawing.x1-radius} ${drawing.y1} a ${radius} ${radius} 0 1 0 ${radius*2} 0 a ${radius} ${radius} 0 1 0 ${-radius*2} 0`}else if(tool==='pen')d='M '+drawing.points.map(p=>p.join(' ')).join(' L ');else d=tool==='curve'?`M ${drawing.x1} ${drawing.y1} Q ${drawing.x1+(drawing.x2-drawing.x1)*.65} ${drawing.y1-(Math.abs(drawing.x2-drawing.x1)*.45+70)} ${drawing.x2} ${drawing.y2}`:`M ${drawing.x1} ${drawing.y1} L ${drawing.x2} ${drawing.y2}`;$('#draftArrow').setAttribute('d',d)};
-$('#pitch').onpointerup=()=>{if(!drawing)return;const distance=Math.hypot(drawing.x2-drawing.x1,drawing.y2-drawing.y1);if(distance>20){if(tool==='circle')tactic().graphics.push({type:'circle',cx:drawing.x1,cy:drawing.y1,r:distance});else if(tool==='pen')tactic().graphics.push({type:'pen',d:'M '+drawing.points.map(p=>p.join(' ')).join(' L ')});else{if(tool==='curve'){drawing.curve=true;drawing.cx=drawing.x1+(drawing.x2-drawing.x1)*.65;drawing.cy=drawing.y1-(Math.abs(drawing.x2-drawing.x1)*.45+70)}tactic().arrows.push(drawing)}
+  // La foto para deshacer se toma en el primer movimiento real, antes de tocar
+  // pp: así un toque suelto sobre el jugador no llena la pila de pasos vacíos.
+  el.onpointermove=ev=>{if(lpTimer&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>8){clearTimeout(lpTimer);lpTimer=null}if(!movido){movido=true;pushUndo()}const r=pitch.getBoundingClientRect();pp.x=Math.max(3,Math.min(97,(ev.clientX-r.left)/r.width*100));pp.y=Math.max(3,Math.min(97,(ev.clientY-r.top)/r.height*100));el.style.left=pp.x+'%';el.style.top=pp.y+'%'};el.onpointerup=()=>{if(lpTimer){clearTimeout(lpTimer);lpTimer=null}el.onpointermove=null;persist();renderBench();renderRivalBench()}}
+function completeSubstitution(inId){const t=tactic(),team=substitutionPending.team,list=team==='rival'?t.opponentPlaced:t.placed,spot=list.find(x=>x.playerId===substitutionPending.id);if(!spot)return;pushUndo();const outId=spot.playerId;spot.playerId=inId;t.substitutions.push({x:spot.x,y:spot.y,team,outId,inId});if(state.live.started&&!state.live.finished&&team==='own')crearEvento({tipo:'sub',ambito:'sistema',team,outId,inId});substitutionPending=null;persist();renderBoard();afterAction();showToast('Cambio realizado')}
+function removePlayerFromPitch(id,team){pushUndo();const t=tactic(),key=team+':'+id;if(team==='rival')t.opponentPlaced=t.opponentPlaced.filter(x=>x.playerId!==id);else t.placed=t.placed.filter(x=>x.playerId!==id);t.highlighted=t.highlighted.filter(x=>x!==key);persist();renderBoard();afterAction()}
+function renderArrows(){const t=tactic();$('#arrows').innerHTML=t.arrows.map(a=>a.curve?`<path d="M ${a.x1} ${a.y1} Q ${a.cx} ${a.cy} ${a.x2} ${a.y2}"/>`:`<path d="M ${a.x1} ${a.y1} L ${a.x2} ${a.y2}"/>`).join('');$('#graphics').innerHTML=t.graphics.map(g=>g.type==='circle'?`<circle cx="${g.cx}" cy="${g.cy}" r="${g.r}"/>`:g.type==='rect'?`<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="10"/>`:`<path d="${g.d}"/>`).join('');$('#textLayer').innerHTML=t.labels.map((l,i)=>`<span class="pitch-text" data-label="${i}" style="left:${l.x}%;top:${l.y}%">${esc(l.text)}</span>`).join('');$('#substitutionLayer').innerHTML=t.substitutions.map((s,i)=>`<span class="sub-badge" data-sub="${i}" style="left:${s.x}%;top:${s.y}%"><i class="in">↗</i><i class="out">↙</i></span>`).join('');$$('[data-label]').forEach(x=>x.onclick=()=>{if(tool==='remove'){pushUndo();t.labels.splice(+x.dataset.label,1);persist();renderArrows();afterAction()}});$$('[data-sub]').forEach(x=>x.onclick=()=>{if(tool==='remove'){pushUndo();t.substitutions.splice(+x.dataset.sub,1);persist();renderArrows();afterAction()}})}
+$('#pitch').onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(!['arrow','curve','circle','rect','pen','text','remove'].includes(tool)||e.target.closest('.pitch-player,.pitch-text,.sub-badge'))return;const r=$('#pitch').getBoundingClientRect(),x=(e.clientX-r.left)/r.width*1000,y=(e.clientY-r.top)/r.height*1400;if(tool==='remove'){removeNearestAnnotation(x,y);return}if(tool==='text'){const value=prompt('Escribe la indicación:');if(value){pushUndo();tactic().labels.push({text:value.slice(0,60),x:x/10,y:y/14});persist();renderArrows();afterAction()}return}drawing={x1:x,y1:y,x2:x,y2:y,points:[[x,y]]};$('#pitch').setPointerCapture(e.pointerId)};
+function removeNearestAnnotation(x,y){const t=tactic(),candidates=[];t.arrows.forEach((a,i)=>candidates.push({kind:'arrows',i,d:Math.hypot(x-(a.x1+a.x2)/2,y-(a.y1+a.y2)/2)}));t.graphics.forEach((g,i)=>{let gx=g.cx,gy=g.cy;if(g.type==='pen'){const nums=(g.d.match(/[\d.]+/g)||[]).map(Number);gx=nums[nums.length-2];gy=nums[nums.length-1]}else if(g.type==='rect'){gx=g.x+g.w/2;gy=g.y+g.h/2}candidates.push({kind:'graphics',i,d:Math.hypot(x-gx,y-gy)})});t.labels.forEach((l,i)=>candidates.push({kind:'labels',i,d:Math.hypot(x-l.x*10,y-l.y*14)}));t.substitutions.forEach((s,i)=>candidates.push({kind:'substitutions',i,d:Math.hypot(x-s.x*10,y-s.y*14)}));const nearest=candidates.sort((a,b)=>a.d-b.d)[0];if(nearest&&nearest.d<180){pushUndo();t[nearest.kind].splice(nearest.i,1);persist();renderArrows();afterAction()}}
+$('#pitch').onpointermove=e=>{if(!drawing)return;const r=$('#pitch').getBoundingClientRect();drawing.x2=(e.clientX-r.left)/r.width*1000;drawing.y2=(e.clientY-r.top)/r.height*1400;if(tool==='pen')drawing.points.push([drawing.x2,drawing.y2]);let d;if(tool==='circle'){const radius=Math.hypot(drawing.x2-drawing.x1,drawing.y2-drawing.y1);d=`M ${drawing.x1-radius} ${drawing.y1} a ${radius} ${radius} 0 1 0 ${radius*2} 0 a ${radius} ${radius} 0 1 0 ${-radius*2} 0`}else if(tool==='rect'){const b=rectBounds(drawing);d=`M ${b.x} ${b.y} h ${b.w} v ${b.h} h ${-b.w} Z`}else if(tool==='pen')d='M '+drawing.points.map(p=>p.join(' ')).join(' L ');else d=tool==='curve'?`M ${drawing.x1} ${drawing.y1} Q ${drawing.x1+(drawing.x2-drawing.x1)*.65} ${drawing.y1-(Math.abs(drawing.x2-drawing.x1)*.45+70)} ${drawing.x2} ${drawing.y2}`:`M ${drawing.x1} ${drawing.y1} L ${drawing.x2} ${drawing.y2}`;$('#draftArrow').setAttribute('d',d)};
+// El rectángulo se guarda normalizado (esquina superior-izquierda + tamaño
+// positivo): así arrastrar en cualquiera de las cuatro direcciones da la misma
+// figura y el borrado por cercanía puede calcular su centro sin casos raros.
+function rectBounds(d){return {x:Math.min(d.x1,d.x2),y:Math.min(d.y1,d.y2),w:Math.abs(d.x2-d.x1),h:Math.abs(d.y2-d.y1)}}
+/* Mínimo de arrastre para dar la figura por buena. Antes era uno solo (20
+   unidades entre el punto de salida y el de llegada) y descartaba en silencio:
+   en el círculo esas 20 unidades son el RADIO, así que los círculos pequeños no
+   se pintaban, y un trazo de bolígrafo cerrado —que acaba donde empezó— también
+   se perdía por mucho que se hubiese dibujado. */
+function trazoValido(d){
+  if(tool==='pen')return d.points.length>3;
+  if(tool==='rect')return Math.abs(d.x2-d.x1)>10||Math.abs(d.y2-d.y1)>10;
+  return Math.hypot(d.x2-d.x1,d.y2-d.y1)>(tool==='circle'?10:14)
+}
+// Si el navegador se lleva el gesto (una interrupción del sistema, un segundo
+// dedo), no queda ni el borrador en pantalla ni un arrastre a medias colgado.
+$('#pitch').onpointercancel=()=>{drawing=null;$('#draftArrow').setAttribute('d','')};
+$('#pitch').onpointerup=()=>{if(!drawing)return;const distance=Math.hypot(drawing.x2-drawing.x1,drawing.y2-drawing.y1);if(trazoValido(drawing)){pushUndo();if(tool==='circle')tactic().graphics.push({type:'circle',cx:drawing.x1,cy:drawing.y1,r:distance});else if(tool==='rect')tactic().graphics.push(Object.assign({type:'rect'},rectBounds(drawing)));else if(tool==='pen')tactic().graphics.push({type:'pen',d:'M '+drawing.points.map(p=>p.join(' ')).join(' L ')});else{if(tool==='curve'){drawing.curve=true;drawing.cx=drawing.x1+(drawing.x2-drawing.x1)*.65;drawing.cy=drawing.y1-(Math.abs(drawing.x2-drawing.x1)*.45+70)}tactic().arrows.push(drawing)}
   // Solo se vuelve a "Mover" si de verdad se ha dibujado algo: un toque suelto
   // sobre el campo no debe hacer perder la herramienta elegida.
-  resetToolIfOneShot()}drawing=null;$('#draftArrow').setAttribute('d','');persist();renderArrows()};
-/* Herramientas de un solo uso (flecha, curva, círculo, texto y cambio): en cuanto
-   se usan, la barra vuelve a "Mover". Antes se quedaban marcadas y el siguiente
-   toque sobre el campo dibujaba otra flecha sin querer. El bolígrafo y las de
-   marcar/quitar sí se mantienen: se usan varias veces seguidas. */
-const HERRAMIENTAS_DE_UN_USO=['arrow','curve','circle','text','sub'];
+  afterAction()}drawing=null;$('#draftArrow').setAttribute('d','');persist();renderArrows()};
+
+/* ===== Herramientas: agrupación, fijado y vuelta automática a "Mover" =====
+   Cada herramienta se usa para una acción y la barra vuelve sola a "Mover": en
+   la banda, con el dedo, lo más fácil es tocar el campo otra vez sin querer y
+   acabar con tres flechas. Quien necesite repetir (varios trazos de bolígrafo,
+   marcar a media alineación) mantiene pulsada la herramienta o le da dos toques
+   y queda FIJA hasta que la suelte. */
+const TOOL_META={
+  move:{ico:'↖',name:'Mover'},arrow:{ico:'➜',name:'Flecha'},curve:{ico:'↝',name:'Flecha curva'},
+  circle:{ico:'◯',name:'Círculo'},rect:{ico:'▭',name:'Rectángulo'},text:{ico:'T',name:'Texto'},
+  pen:{ico:'✎',name:'Bolígrafo'},highlight:{ico:'◉',name:'Marcar jugador'},sub:{ico:'⇄',name:'Cambio'},
+  remove:{ico:'⌫',name:'Borrar'}
+};
+const TOOL_MENUS={marks:['arrow','curve','circle','rect'],annot:['text','pen','highlight','sub']};
+const menuShown={marks:'arrow',annot:'text'};   // herramienta visible en cada desplegable
+let toolPinned=false;
 function setTool(t){
   tool=t;if(tool!=='sub')substitutionPending=null;
-  $$('.tool[data-tool]').forEach(x=>x.classList.toggle('active',x.dataset.tool===t));
-  renderPitch()
+  Object.keys(TOOL_MENUS).forEach(k=>{if(TOOL_MENUS[k].includes(t))menuShown[k]=t});
+  renderToolbar();renderPitch()
 }
-function resetToolIfOneShot(){if(HERRAMIENTAS_DE_UN_USO.includes(tool))setTool('move')}
-$$('.tool[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));$('#clearArrows').onclick=()=>{const t=tactic();t.arrows=[];t.graphics=[];t.labels=[];t.highlighted=[];t.substitutions=[];persist();renderBoard()};$('#clearPitch').onclick=()=>{tactic().placed=[];tactic().opponentPlaced=[];substitutionPending=null;persist();renderBoard()};
-$('#formation').onchange=e=>{const t=tactic();t.formation=e.target.value;const spots=formations[t.formation];if(spots)t.placed.forEach((p,i)=>{if(spots[i]){p.x=spots[i][0];p.y=spots[i][1]}});persist();renderPitch()};
-function renderBoard(){renderTabs();renderBench();renderRivalBench();renderPitch();renderScoreboard();renderLive()}
+function afterAction(){if(!toolPinned&&tool!=='move')setTool('move')}
+function renderToolbar(){
+  $$('.pitch-toolbar .tool[data-tool]').forEach(b=>{
+    const on=b.dataset.tool===tool;
+    b.classList.toggle('active',on);b.classList.toggle('pinned',on&&toolPinned)
+  });
+  Object.keys(TOOL_MENUS).forEach(k=>{
+    const menu=$(`.tool-menu[data-menu="${k}"]`);if(!menu)return;
+    const meta=TOOL_META[menuShown[k]],trg=menu.querySelector('.tool-trigger'),activo=TOOL_MENUS[k].includes(tool);
+    trg.querySelector('.t-ico').textContent=meta.ico;
+    trg.querySelector('.t-name').textContent=meta.name;
+    trg.classList.toggle('active',activo);trg.classList.toggle('pinned',activo&&toolPinned);
+    menu.querySelectorAll('.tool-option').forEach(o=>{
+      const on=o.dataset.tool===tool;
+      o.classList.toggle('on',on);o.classList.toggle('pinned',on&&toolPinned)
+    })
+  });
+  const u=$('#undoBtn');if(u)u.disabled=!undoStack.length
+}
+function pinTool(t){
+  if(toolPinned&&tool===t){toolPinned=false;setTool('move');showToast('Herramienta suelta');return}
+  toolPinned=true;setTool(t);showToast(`${TOOL_META[t].name} fijada. Vuelve a mantener pulsado para soltarla.`,2600)
+}
+/* Un toque elige la herramienta; pulsación larga (550 ms) o doble toque la fija.
+   El doble toque se detecta a mano porque dblclick no llega con el dedo. */
+function bindTool(el,t){
+  let lpTimer=null,lpFired=false,lastTap=0;
+  const cancel=()=>{if(lpTimer){clearTimeout(lpTimer);lpTimer=null}};
+  el.addEventListener('pointerdown',()=>{lpFired=false;cancel();lpTimer=setTimeout(()=>{lpTimer=null;lpFired=true;pinTool(t);closeToolMenus()},550)});
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,cancel));
+  el.addEventListener('contextmenu',ev=>ev.preventDefault());
+  el.addEventListener('click',()=>{
+    if(lpFired){lpFired=false;return}
+    const ahora=Date.now();
+    if(ahora-lastTap<350){lastTap=0;pinTool(t);closeToolMenus();return}
+    lastTap=ahora;toolPinned=false;setTool(t);closeToolMenus()
+  })
+}
+/* Los desplegables se pintan en position:fixed y se colocan aquí: dentro del
+   panel del campo (overflow:hidden) quedarían recortados igual que antes. */
+function placeDropdown(menu){
+  const trg=menu.querySelector('.tool-trigger'),dd=menu.querySelector('.tool-dropdown'),r=trg.getBoundingClientRect();
+  dd.hidden=false;
+  const w=dd.offsetWidth,h=dd.offsetHeight;
+  dd.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';
+  dd.style.top=(r.bottom+6+h>innerHeight-8?Math.max(8,r.top-h-6):r.bottom+6)+'px'
+}
+function closeToolMenus(){$$('.tool-menu.open').forEach(m=>{m.classList.remove('open');m.querySelector('.tool-dropdown').hidden=true;m.querySelector('.tool-trigger').setAttribute('aria-expanded','false')})}
+/* En el botón principal del desplegable un toque abre la lista, pero la
+   pulsación larga y el doble toque fijan la herramienta que muestra. Dentro de
+   la lista el doble toque no serviría: el primer toque ya cierra el menú y el
+   segundo caería sobre el campo. */
+$$('.tool-menu').forEach(menu=>{
+  const trg=menu.querySelector('.tool-trigger'),grupo=menu.dataset.menu;
+  let lpTimer=null,lpFired=false,lastTap=0;
+  const cancel=()=>{if(lpTimer){clearTimeout(lpTimer);lpTimer=null}};
+  trg.addEventListener('pointerdown',e=>{e.stopPropagation();lpFired=false;cancel();lpTimer=setTimeout(()=>{lpTimer=null;lpFired=true;closeToolMenus();pinTool(menuShown[grupo])},550)});
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>trg.addEventListener(ev,cancel));
+  trg.addEventListener('contextmenu',e=>e.preventDefault());
+  trg.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(lpFired){lpFired=false;return}
+    const ahora=Date.now(),herr=menuShown[grupo];
+    if(ahora-lastTap<350){lastTap=0;closeToolMenus();pinTool(herr);return}
+    lastTap=ahora;
+    const abierto=menu.classList.contains('open');closeToolMenus();
+    if(abierto)return;
+    /* Si la herramienta que muestra el botón no está activa, el toque la activa
+       sin abrir nada: como la barra vuelve sola a "Mover" después de cada
+       figura, repetir un círculo es UN toque y no tres. Era justo esto lo que
+       hacía que el segundo arrastre pareciese que "no pinta": no había
+       herramienta activa. Si ya está activa, el toque abre la lista para
+       cambiar de forma. */
+    if(tool!==herr){toolPinned=false;setTool(herr);return}
+    menu.classList.add('open');trg.setAttribute('aria-expanded','true');placeDropdown(menu)
+  });
+  menu.querySelectorAll('.tool-option').forEach(o=>bindTool(o,o.dataset.tool))
+});
+$$('.pitch-toolbar .tool[data-tool]').forEach(b=>bindTool(b,b.dataset.tool));
+// Tocar fuera, mover la página o Escape cierran el desplegable.
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('.tool-menu'))closeToolMenus()},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeToolMenus()});
+addEventListener('resize',()=>$$('.tool-menu.open').forEach(placeDropdown));
+addEventListener('scroll',()=>$$('.tool-menu.open').forEach(placeDropdown),true);
+
+/* ===== Deshacer =====
+   Fotos completas de los elementos del campo en vez de operaciones inversas:
+   dibujar, borrar con la goma, mover un jugador o limpiar el campo se deshacen
+   con el mismo código, y lo copiado son solo coordenadas (unos pocos KB). Vive
+   en memoria: es de este dispositivo, no se guarda ni se sincroniza. */
+const CAMPO_KEYS=['placed','opponentPlaced','arrows','graphics','labels','highlighted','substitutions'];
+const UNDO_MAX=30;
+let undoStack=[];
+function pushUndo(){
+  const t=tactic();if(!t)return;
+  const snap={};CAMPO_KEYS.forEach(k=>snap[k]=JSON.parse(JSON.stringify(t[k]||[])));
+  undoStack.push({tacticId:t.id,snap});
+  if(undoStack.length>UNDO_MAX)undoStack.shift();
+  const u=$('#undoBtn');if(u)u.disabled=false
+}
+function undoLast(){
+  while(undoStack.length){
+    const paso=undoStack.pop(),t=state.tactics.find(x=>x.id===paso.tacticId);
+    if(!t)continue;                       // la táctica se borró: ese paso ya no aplica
+    CAMPO_KEYS.forEach(k=>t[k]=paso.snap[k]);
+    state.activeTactic=t.id;substitutionPending=null;
+    persist();renderBoard();showToast('Acción deshecha');return
+  }
+  renderToolbar();showToast('No hay nada que deshacer')
+}
+$('#undoBtn').onclick=undoLast;
+$('#clearAll').onclick=()=>{
+  if(!confirm('Se borrarán todos los elementos del campo, incluidos jugadores y marcas. ¿Continuar?'))return;
+  pushUndo();const t=tactic();CAMPO_KEYS.forEach(k=>t[k]=[]);
+  substitutionPending=null;persist();renderBoard();showToast('Campo vacío')
+};
+$('#formation').onchange=e=>{pushUndo();const t=tactic();t.formation=e.target.value;const spots=formations[t.formation];if(spots)t.placed.forEach((p,i)=>{if(spots[i]){p.x=spots[i][0];p.y=spots[i][1]}});persist();renderPitch()};
+function renderBoard(){renderTabs();renderBench();renderRivalBench();renderToolbar();renderPitch();renderScoreboard();renderLive()}
 function renderSquad(){const q=$('#playerSearch').value.toLowerCase(),filter=$('#statusFilter').value;const list=state.players.filter(p=>(filter==='all'||p.status===filter)&&(p.name+' '+p.position).toLowerCase().includes(q));$('#playerGrid').innerHTML=list.map(p=>`<article class="player-card"><div class="player-card-top"><div class="card-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><span class="role">${esc(p.position)}</span><br><span class="status-tag"><i class="${p.status}"></i>${statusText[p.status]}</span></div><span class="number">${esc(p.number||'—')}</span></div><p class="notes">${esc(p.notes)||'Sin notas añadidas.'}</p><div class="card-actions"><button data-edit="${p.id}">Editar ficha</button><button class="delete" data-delete="${p.id}">×</button></div></article>`).join('')||'<p>No se encontraron jugadores.</p>';$('#totalPlayers').textContent=state.players.length;$('#fitPlayers').textContent=state.players.filter(p=>p.status==='available').length;$('#doubtPlayers').textContent=state.players.filter(p=>p.status==='doubt').length;$('#outPlayers').textContent=state.players.filter(p=>['injured','suspended'].includes(p.status)).length;$('#squadCount').textContent=state.players.length;$$('[data-edit]').forEach(b=>b.onclick=()=>openPlayer(b.dataset.edit));$$('[data-delete]').forEach(b=>b.onclick=()=>{if(confirm('¿Eliminar este jugador de la plantilla?')){const did=b.dataset.delete;state.players=state.players.filter(p=>p.id!==did);state.tactics.forEach(t=>t.placed=t.placed.filter(x=>x.playerId!==did));state.match.goals=state.match.goals.filter(x=>!(x.team==='own'&&x.scorerId===did));state.match.goals.forEach(x=>{if(x.team==='own'&&x.assistId===did)x.assistId=null});state.trainings.forEach(t=>t.stations.forEach(s=>{s.playerIds=s.playerIds.filter(pid=>pid!==did)}));persist();renderAll()}})}
 $('#playerSearch').oninput=renderSquad;$('#statusFilter').onchange=renderSquad;$('#newPlayer').onclick=()=>openPlayer();
 function renderRivals(){const q=$('#rivalSearch').value.toLowerCase();$('#rivalTeamName').textContent=state.match.opponent||'Equipo rival';const list=state.rivals.filter(p=>(p.name+' '+p.position).toLowerCase().includes(q));$('#rivalGrid').innerHTML=list.map(p=>`<article class="player-card"><div class="player-card-top"><div class="card-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><span class="role">${esc(p.position)}</span></div><span class="number">${esc(p.number||'—')}</span></div><p class="notes">${esc(p.notes)||'Sin notas de scouting.'}</p><div class="card-actions"><button data-rival-edit="${p.id}">Editar ficha</button><button class="delete" data-rival-delete="${p.id}">×</button></div></article>`).join('')||'<p>No se encontraron jugadores rivales.</p>';$('#rivalCount').textContent=state.rivals.length;$$('[data-rival-edit]').forEach(b=>b.onclick=()=>openPlayer(b.dataset.rivalEdit,'rival'));$$('[data-rival-delete]').forEach(b=>b.onclick=()=>{if(confirm('¿Eliminar este jugador rival?')){const did=b.dataset.rivalDelete;state.rivals=state.rivals.filter(p=>p.id!==did);state.tactics.forEach(t=>t.opponentPlaced=t.opponentPlaced.filter(x=>x.playerId!==did));state.match.goals=state.match.goals.filter(x=>!(x.team==='rival'&&x.scorerId===did));state.match.goals.forEach(x=>{if(x.team==='rival'&&x.assistId===did)x.assistId=null});persist();renderAll()}})}
@@ -638,10 +782,15 @@ function liveResume(){state.live.running=true;persist();renderLive();liveStartTi
 function liveEndHalf(){const L=state.live;L.running=false;liveStopTicking();const fin=halfName(L.half);L.half++;L.elapsed=0;liveSaveCount=0;persist();renderBoard();showToast('Fin de la '+fin)}
 function liveFinish(){const L=state.live;L.running=false;L.finished=true;liveStopTicking();persist();renderBoard();openReport()}
 function liveReset(){
-  if(!confirm('¿Reiniciar el partido en directo? Se borran el cronómetro, los minutos y los eventos. Los goles del marcador se mantienen.'))return;
+  if(!confirm('¿Reiniciar el partido? Se ponen a cero el marcador, el cronómetro, los minutos y los eventos. No se puede deshacer.'))return;
   limpiarEventos();
   state.live={started:false,finished:false,running:false,half:1,halfLength:state.live.halfLength||45,elapsed:0,minutes:{},events:[]};
-  liveStopTicking();persist();renderBoard()
+  // Los goles viven en state.match.goals, dentro del JSON de la pizarra: al
+  // vaciarlos aquí, el persist() de abajo sube el documento ya a cero. Los
+  // eventos de gol enlazados están en la subcolección y se los ha llevado
+  // limpiarEventos(), así que no queda ningún gol residual en la nube.
+  state.match.goals=[];
+  liveStopTicking();persist();renderBoard();refrescarPaneles();showToast('Partido reiniciado: marcador 0 – 0')
 }
 function setHalfLength(m){state.live.halfLength=m;persist();renderLive()}
 
@@ -1368,6 +1517,9 @@ function applyRemote(json){
   // array vacío que viaja en el JSON se perderían los del otro dispositivo.
   if(eventosRef())nuevo.live.events=state.live.events;
   state=nuevo;
+  // La pila de deshacer es de este dispositivo y se queda obsoleta: aplicarla
+  // encima de lo que acaba de mandar otro resucitaría lo que allí se borró.
+  undoStack=[];
   saveLocal();refreshMatchInputs();renderAll();setSync(true)
 }
 async function connectBoard(key){
