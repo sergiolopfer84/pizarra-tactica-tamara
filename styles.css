@@ -525,3 +525,17 @@ body.live-on .toast{bottom:88px}
    resto de iconos): hereda el color del botón, incluido el rojo de .danger. */
 .tool .t-ico svg{display:block}
 .tool .t-ico:has(svg){display:flex;align-items:center}
+
+/* ===== Tarjeta sobre el jugador =====
+   Rectángulo en CSS y no un emoji: a 46px de ficha el emoji sale borroso y
+   cambia de forma en cada sistema. Abajo a la izquierda, que arriba ya están
+   el dorsal (derecha) y los minutos jugados (izquierda). */
+.card-badge{position:absolute;left:-6px;bottom:-2px;width:11px;height:15px;border-radius:2px;border:1.5px solid #fff;box-shadow:0 2px 5px #0006;transform:rotate(-12deg);z-index:2}
+.card-badge.yellow{background:#f5c518}
+.card-badge.red{background:#dc2f38}
+
+/* Selector de zona incrustado en el diálogo del gol: a lo ancho del modal y con
+   los botones propios de la ficha (el diálogo ya tiene Cancelar y Guardar). */
+.goal-zone{padding:0 24px 18px}
+.goal-zone[hidden]{display:none}
+.goal-zone .zone-pick{width:100%;max-width:none}

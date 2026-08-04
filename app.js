@@ -29,8 +29,14 @@ const zonaFranja=z=>z?z.slice(0,3):null;
 const EVENTOS=[
   {t:'regate_ok',     n:'Regate exitoso',              ic:'💫', g:'of',  zona:true},
   {t:'regate_fallo',  n:'Regate fallido',              ic:'⛔', g:'of',  zona:true},
-  {t:'gol',           n:'Gol',                         ic:'⚽', g:'of',  zona:true},
-  {t:'asistencia',    n:'Asistencia',                  ic:'🤝', g:'of',  zona:true},
+  /* Gol y asistencia siguen aquí porque el informe usa esta tabla para sus
+     nombres, iconos y columnas, y los partidos ya guardados tienen eventos de
+     estos tipos. Pero salen de la rejilla del menú (oculto): había dos formas
+     de apuntar un gol, una con asistencia y otra con zona, y cada una dejaba
+     el informe a medias. Ahora solo se apunta desde "Asignar gol", que pide
+     las dos cosas de una vez. */
+  {t:'gol',           n:'Gol',                         ic:'⚽', g:'of',  zona:true, oculto:true},
+  {t:'asistencia',    n:'Asistencia',                  ic:'🤝', g:'of',  zona:true, oculto:true},
   {t:'tiro_puerta',   n:'Tiro a puerta',               ic:'🎯', g:'of',  zona:true, ayuda:'Solo ocasión clara de gol'},
   {t:'centro_remate', n:'Centro que acaba en remate',  ic:'📤', g:'of',  zona:true, ayuda:'Carril de origen'},
   {t:'profundidad',   n:'Ataque a la profundidad',     ic:'🏃', g:'of',  zona:true},
@@ -131,7 +137,22 @@ function renderRivalBench(){const placed=new Set(tactic().opponentPlaced.map(x=>
 function benchAction(id,team){if(tool==='sub'){if(!substitutionPending){showToast('Primero selecciona quién sale del campo');return}if(substitutionPending.team!==team){showToast('Elige un jugador del mismo equipo');return}completeSubstitution(id);return}placePlayer(id,team)}
 function placePlayer(id,team='own'){pushUndo();const t=tactic(),list=team==='rival'?t.opponentPlaced:t.placed,spots=formations[t.formation]||[];let pos=team==='rival'?[15+list.length%4*23,15+Math.floor(list.length/4)*12]:(spots[list.length]||[50,50]);list.push({playerId:id,x:pos[0],y:pos[1]});persist();renderBoard()}
 function renderPitch(){const t=tactic();$('#formation').value=t.formation;const own=t.placed.map(pp=>playerHTML(pp,state.players,'own')).join(''),rival=t.opponentPlaced.map(pp=>playerHTML(pp,state.rivals,'rival')).join('');$('#pitchPlayers').innerHTML=own+rival;$('#pitchHint').style.display=(t.placed.length+t.opponentPlaced.length)?'none':'block';$$('.pitch-player').forEach(el=>{el.onpointerdown=startPlayerDrag;el.oncontextmenu=e=>{e.preventDefault();e.stopPropagation();openContextMenu(e.clientX,e.clientY,el.dataset.id,el.dataset.team)}});renderArrows()}
-function playerHTML(pp,roster,team){const p=roster.find(x=>x.id===pp.playerId);if(!p)return'';const marked=tactic().highlighted.includes(team+':'+p.id),selected=substitutionPending&&substitutionPending.team===team&&substitutionPending.id===p.id;const rivalStyle=team==='rival'?`--rival-primary:${state.rivalColors.primary};--rival-secondary:${state.rivalColors.secondary}`:'';const liveMin=(team==='own'&&state.live&&state.live.started&&!state.live.finished)?`<u class="live-min" data-min="${p.id}">${Math.floor((state.live.minutes[p.id]||0)/60)}′</u>`:'';return `<div class="pitch-player ${team==='rival'?'rival':''} ${marked?'highlighted':''} ${selected?'sub-selected':''}" data-id="${p.id}" data-team="${team}" style="left:${pp.x}%;top:${pp.y}%;${rivalStyle}"><div class="player-token" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}<b>${esc(p.number||'-')}</b>${liveMin}</div><small>${esc(p.name.split(' ')[0])}</small></div>`}
+function playerHTML(pp,roster,team){const p=roster.find(x=>x.id===pp.playerId);if(!p)return'';const marked=tactic().highlighted.includes(team+':'+p.id),selected=substitutionPending&&substitutionPending.team===team&&substitutionPending.id===p.id;const rivalStyle=team==='rival'?`--rival-primary:${state.rivalColors.primary};--rival-secondary:${state.rivalColors.secondary}`:'';const liveMin=(team==='own'&&state.live&&state.live.started&&!state.live.finished)?`<u class="live-min" data-min="${p.id}">${Math.floor((state.live.minutes[p.id]||0)/60)}′</u>`:'';const tj=tarjetaDe(team,p.id),carta=tj?`<em class="card-badge ${tj.clase}" title="${esc(tj.txt)}"></em>`:'';return `<div class="pitch-player ${team==='rival'?'rival':''} ${marked?'highlighted':''} ${selected?'sub-selected':''}" data-id="${p.id}" data-team="${team}" style="left:${pp.x}%;top:${pp.y}%;${rivalStyle}"><div class="player-token" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}<b>${esc(p.number||'-')}</b>${liveMin}${carta}</div><small>${esc(p.name.split(' ')[0])}</small></div>`}
+/* Tarjeta visible sobre el jugador. Se pinta la sanción vigente, no el
+   historial: dos amarillas son una expulsión, así que sale la roja. No se
+   condiciona a que el partido esté en marcha para que al acabar siga viéndose
+   quién terminó amonestado. */
+function tarjetaDe(team,id){
+  let am=0,ro=0;
+  ((state.live&&state.live.events)||[]).forEach(e=>{
+    if(e.ambito!=='jugador'||e.jugadorId!==id||(e.team||'own')!==team)return;
+    if(e.tipo==='yellow')am++;else if(e.tipo==='red')ro++
+  });
+  if(ro)return {clase:'red',txt:'Tarjeta roja'};
+  if(am>=2)return {clase:'red',txt:'Expulsado por doble amarilla'};
+  if(am)return {clase:'yellow',txt:'Tarjeta amarilla'};
+  return null
+}
 function startPlayerDrag(e){const el=e.currentTarget,id=el.dataset.id,team=el.dataset.team,key=team+':'+id;if(tool==='highlight'){e.preventDefault();pushUndo();const h=tactic().highlighted,i=h.indexOf(key);i>=0?h.splice(i,1):h.push(key);persist();renderPitch();afterAction();return}if(tool==='sub'){e.preventDefault();substitutionPending={id,team};renderPitch();showToast('Ahora selecciona quién entra desde el banquillo',2000);return}if(tool==='remove'){e.preventDefault();removePlayerFromPitch(id,team);return}if(tool!=='move')return;if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();const pitch=$('#pitch'),list=team==='rival'?tactic().opponentPlaced:tactic().placed,pp=list.find(x=>x.playerId===id);el.setPointerCapture(e.pointerId);
   // Pulsación larga (táctil) abre el menú contextual; en ratón lo hace el clic
   // derecho vía oncontextmenu. Si el dedo se mueve, es un arrastre y se cancela.
@@ -205,7 +226,7 @@ function renderToolbar(){
       o.classList.toggle('on',on);o.classList.toggle('pinned',on&&toolPinned)
     })
   });
-  const u=$('#undoBtn');if(u)u.disabled=!undoStack.length
+  const u=$('#undoBoard');if(u)u.disabled=!undoStack.length
 }
 function pinTool(t){
   if(toolPinned&&tool===t){toolPinned=false;setTool('move');showToast('Herramienta suelta');return}
@@ -286,7 +307,7 @@ function pushUndo(){
   const snap={};CAMPO_KEYS.forEach(k=>snap[k]=JSON.parse(JSON.stringify(t[k]||[])));
   undoStack.push({tacticId:t.id,snap});
   if(undoStack.length>UNDO_MAX)undoStack.shift();
-  const u=$('#undoBtn');if(u)u.disabled=false
+  const u=$('#undoBoard');if(u)u.disabled=false
 }
 function undoLast(){
   while(undoStack.length){
@@ -298,7 +319,7 @@ function undoLast(){
   }
   renderToolbar();showToast('No hay nada que deshacer')
 }
-$('#undoBtn').onclick=undoLast;
+$('#undoBoard').onclick=undoLast;
 $('#clearAll').onclick=()=>{
   if(!confirm('Se borrarán todos los elementos del campo, incluidos jugadores y marcas. ¿Continuar?'))return;
   pushUndo();const t=tactic();CAMPO_KEYS.forEach(k=>t[k]=[]);
@@ -457,12 +478,14 @@ function nombreDe(team,id){const p=rosterOf(team).find(x=>x.id===id);return p?p.
    informe o desde la ficha. Se pinta DENTRO del popup que ya está abierto, así
    que registrar cuesta tres toques: jugador → evento → cuadrante. Sin zona por
    defecto y sin caducidad: si no se toca, no se inventa nada. */
-function zonaGridHTML(titulo,ayuda,zonaActual){
+// acciones=false para incrustarlo en un formulario que ya tiene sus botones:
+// allí la zona se elige y se queda marcada, no se envía al tocarla.
+function zonaGridHTML(titulo,ayuda,zonaActual,acciones=true){
   const celda=z=>`<button type="button" class="zg-cell${zonaActual===z?' now':''}" data-zona="${z}"><b>${ZONA_ETI[z]}</b><i>${esc(ZONA_NOM[z].split(' · ')[1])}</i></button>`;
   return `<div class="zone-pick">
     <div class="zp-head"><span class="zp-title">${esc(titulo)}</span>${ayuda?`<small>${esc(ayuda)}</small>`:''}</div>
     <div class="zp-field"><div class="zp-grid">${ZONAS.map(celda).join('')}</div><span class="zp-goal">▼ NUESTRA PORTERÍA</span></div>
-    <div class="zp-actions"><button type="button" class="zp-skip" data-zona="">Sin zona</button><button type="button" class="zp-cancel">Volver</button></div>
+    ${acciones?`<div class="zp-actions"><button type="button" class="zp-skip" data-zona="">Sin zona</button><button type="button" class="zp-cancel">Volver</button></div>`:''}
   </div>`
 }
 function bindZonaGrid(box,onPick,onCancel){
@@ -501,7 +524,7 @@ function renderPlayerMenu(){
     <button type="button" data-act="stats"><span class="ic">▤</span>Sus estadísticas</button>`;
   let ev='';
   if(vivo){
-    const lista=EVENTOS.filter(e=>e.g===menuTab);
+    const lista=EVENTOS.filter(e=>e.g===menuTab&&!e.oculto);
     ev=`<div class="ctx-events">
       <div class="ctx-sep">REGISTRAR ACCIÓN</div>
       <div class="ctx-tabs"><button type="button" class="ctx-tab${menuTab==='of'?' on':''}" data-tab="of">Ofensivo</button><button type="button" class="ctx-tab${menuTab==='def'?' on':''}" data-tab="def">Defensivo</button></div>
@@ -555,12 +578,27 @@ function startSubstitution(id,team){
 let goalTeam='own';
 function goalOptions(team,exclude){return rosterOf(team).slice().sort(byNumber).filter(p=>p.id!==exclude).map(p=>`<option value="${p.id}">${esc((p.number?p.number+' · ':'')+p.name)}</option>`).join('')}
 function fillAssist(){$('#goalAssist').innerHTML='<option value="">Sin asistencia</option>'+goalOptions(goalTeam,$('#goalScorer').value)}
+/* Zona elegida en el diálogo. Es la única vía para apuntar un gol, así que aquí
+   se recogen las tres cosas que necesita el informe —goleador, asistente y
+   cuadrante— en una sola pasada. Sin zona por defecto: si no se toca, el gol
+   entra igual y solo se queda fuera del mapa. */
+let goalZone=null;
 function openGoalDialog(id,team){
-  goalTeam=team;
+  goalTeam=team;goalZone=null;
   const nombre=team==='rival'?(state.match.opponent||'Rival'):(state.club||'Equipo');
   $('#goalEyebrow').textContent=nombre.toUpperCase()+' · GOL';
   $('#goalScorer').innerHTML=goalOptions(team,null);
   $('#goalScorer').value=id;fillAssist();
+  const box=$('#goalZone'),vivo=state.live.started&&!state.live.finished;
+  box.hidden=!vivo;
+  if(vivo){
+    box.innerHTML=zonaGridHTML('¿En qué zona?','Para el mapa del informe. Toca otra vez para quitarla.',null,false);
+    box.querySelectorAll('[data-zona]').forEach(b=>b.onclick=ev=>{
+      ev.preventDefault();ev.stopPropagation();
+      goalZone=goalZone===b.dataset.zona?null:b.dataset.zona;
+      box.querySelectorAll('[data-zona]').forEach(x=>x.classList.toggle('now',x.dataset.zona===goalZone))
+    })
+  }else box.innerHTML='';
   $('#goalDialog').showModal()
 }
 $('#goalScorer').onchange=fillAssist;
@@ -571,14 +609,22 @@ $('#goalForm').onsubmit=e=>{
   const assistId=$('#goalAssist').value||null,vivo=state.live.started&&!state.live.finished;
   const gol={id:'g'+Date.now(),team:goalTeam,scorerId,assistId,min:vivo?liveMinute():null};
   state.match.goals.push(gol);
-  // Con el partido en directo el gol también entra como evento (sin zona, porque
-  // aquí no se ha preguntado) para que el informe por zonas cuadre con el marcador.
+  /* Con el partido en directo, el gol entra a la vez en el marcador y en los
+     eventos, con su zona y con la asistencia. La asistencia hereda el cuadrante
+     del gol: es la misma jugada, y preguntar dos zonas seguidas a pie de campo
+     no lo usaría nadie. Se guarda asisEvId para que quitar el gol del marcador
+     se lleve también la asistencia y no queden asistencias huérfanas. */
   if(vivo){
-    const ev=crearEvento({tipo:'gol',ambito:'jugador',jugadorId:scorerId,team:goalTeam,zona:null});
+    const ev=crearEvento({tipo:'gol',ambito:'jugador',jugadorId:scorerId,team:goalTeam,zona:goalZone});
     ev.golId=gol.id;gol.evId=ev.id;cloudSaveEvent(ev);
-    if(assistId)crearEvento({tipo:'asistencia',ambito:'jugador',jugadorId:assistId,team:goalTeam,zona:null})
+    if(assistId){
+      // Sin golId en la asistencia: ese campo marca "este evento ES el gol" y
+      // borrarEvento() lo usa para quitarlo del marcador. El enlace va solo en
+      // sentido gol → asistencia.
+      gol.asisEvId=crearEvento({tipo:'asistencia',ambito:'jugador',jugadorId:assistId,team:goalTeam,zona:goalZone}).id
+    }
   }
-  $('#goalDialog').close();persist(true);renderScoreboard();refrescarPaneles();showToast('Gol registrado')
+  $('#goalDialog').close();persist(true);renderBoard();refrescarPaneles();showToast(assistId?'Gol y asistencia registrados':'Gol registrado')
 };
 function renderScoreboard(){
   const box=$('#scoreboard');if(!box)return;
@@ -610,10 +656,14 @@ function renderScoreboard(){
   $$('[data-goal]').forEach(b=>b.onclick=()=>{
     const gid=b.dataset.goal,gol=state.match.goals.find(x=>x.id===gid);
     state.match.goals=state.match.goals.filter(x=>x.id!==gid);
-    // El evento de gol enlazado se va con él: si no, el mapa seguiría contándolo.
+    // Los eventos enlazados se van con él: si no, el mapa seguiría contando el
+    // gol y el informe seguiría apuntándole la asistencia a quien la dio.
+    const fuera=[];
     const ev=state.live.events.find(e=>e.golId===gid||(gol&&gol.evId&&e.id===gol.evId));
-    if(ev){state.live.events=state.live.events.filter(e=>e.id!==ev.id);cloudDeleteEvent(ev.id)}
-    persist();renderScoreboard();refrescarPaneles()
+    if(ev)fuera.push(ev.id);
+    if(gol&&gol.asisEvId)fuera.push(gol.asisEvId);
+    if(fuera.length){state.live.events=state.live.events.filter(e=>!fuera.includes(e.id));fuera.forEach(cloudDeleteEvent)}
+    persist();renderBoard();refrescarPaneles()
   })
 }
 
@@ -851,9 +901,16 @@ function borrarEvento(id){
   const L=state.live,i=L.events.findIndex(e=>e.id===id);
   if(i<0)return;
   const ev=L.events[i];
-  // Un gol registrado desde el menú también está en el marcador: se quitan los dos.
-  if(ev.golId)state.match.goals=state.match.goals.filter(g=>g.id!==ev.golId);
-  L.events.splice(i,1);cloudDeleteEvent(id);persist();
+  // Un gol está en tres sitios: evento, marcador y —si la hubo— asistencia.
+  // Se van los tres juntos para que ninguna cuenta quede descuadrada.
+  if(ev.golId){
+    const gol=state.match.goals.find(g=>g.id===ev.golId);
+    state.match.goals=state.match.goals.filter(g=>g.id!==ev.golId);
+    if(gol&&gol.asisEvId){L.events=L.events.filter(e=>e.id!==gol.asisEvId);cloudDeleteEvent(gol.asisEvId)}
+  }
+  const j=L.events.findIndex(e=>e.id===id);
+  if(j>=0)L.events.splice(j,1);
+  cloudDeleteEvent(id);persist();
   renderBoard();refrescarPaneles()
 }
 function cambiarZonaEvento(id,zona){
@@ -872,6 +929,9 @@ function registrarEventoJugador(tipo,id,team,zona){
     const gol={id:'g'+Date.now(),team,scorerId:id,assistId:null,min:ev.minuto,evId:ev.id};
     state.match.goals.push(gol);ev.golId=gol.id;cloudSaveEvent(ev);persist();renderScoreboard()
   }
+  // La tarjeta se ve sobre el jugador, así que hay que repintar el campo:
+  // refrescarPaneles() solo toca el informe y la ficha.
+  if(tipo==='yellow'||tipo==='red')renderPitch();
   const nombre=nombreDe(team,id).split(' ')[0];
   ofrecerDeshacer(ev,`${EVENTO_IC[tipo]||''} ${EVENTO_NOM[tipo]||tipo} · ${nombre}${zona?' · '+ZONA_ETI[zona]:' · sin zona'}`);
   refrescarPaneles()
@@ -889,9 +949,11 @@ let undoTimer=null,undoId=null;
 function ofrecerDeshacer(ev,texto){
   undoId=ev.id;
   const t=$('#undoToast');
-  t.innerHTML=`<span>${esc(texto)}</span><button type="button" id="undoBtn">Deshacer</button>`;
+  // Se busca dentro del propio aviso, no por id global: el botón "Deshacer" de
+  // la barra del campo es otro y con $('#…') se acababa cableando ese.
+  t.innerHTML=`<span>${esc(texto)}</span><button type="button">Deshacer</button>`;
   t.classList.add('show');
-  $('#undoBtn').onclick=()=>{if(undoId)borrarEvento(undoId);undoId=null;t.classList.remove('show');clearTimeout(undoTimer);showToast('Evento deshecho')};
+  t.querySelector('button').onclick=()=>{if(undoId)borrarEvento(undoId);undoId=null;t.classList.remove('show');clearTimeout(undoTimer);showToast('Evento deshecho')};
   clearTimeout(undoTimer);
   undoTimer=setTimeout(()=>{t.classList.remove('show');undoId=null},6500)
 }
