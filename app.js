@@ -21,6 +21,13 @@ const ZONA_ETI={def_izq:'DFI',def_cen:'DFC',def_der:'DFD',med_izq:'MCI',med_cen:
 const ZONA_NOM={def_izq:'Defensa · izquierda',def_cen:'Defensa · centro',def_der:'Defensa · derecha',med_izq:'Medio · izquierda',med_cen:'Medio · centro',med_der:'Medio · derecha',ata_izq:'Ataque · izquierda',ata_cen:'Ataque · centro',ata_der:'Ataque · derecha'};
 const FRANJA_NOM={def:'inicio de juego',med:'zona media',ata:'campo rival'};
 const zonaFranja=z=>z?z.slice(0,3):null;
+/* fila 1-3 (defensivo → ofensivo) y carril 1-3 (izquierda → derecha). El id de
+   zona ya lo dice todo, pero se guardan también como número en cada evento
+   nuevo: es lo que pide el informe y lo que se lee sin diccionario en el JSON
+   de la copia de seguridad. Derivados, nunca la fuente: manda `zona`. */
+const ZONA_FILA={def:1,med:2,ata:3},ZONA_CARRIL={izq:1,cen:2,der:3};
+const filaDe=z=>z?ZONA_FILA[z.slice(0,3)]||null:null;
+const carrilDe=z=>z?ZONA_CARRIL[z.slice(4)]||null:null;
 
 /* ===== Catálogo de eventos =====
    Los cuatro primeros de cada pestaña son los originales (los más frecuentes),
@@ -51,10 +58,18 @@ const EVENTOS=[
   {t:'red',           n:'Tarjeta roja',                ic:'🟥', g:'def', zona:false}
 ];
 // Eventos de equipo: no cuelgan de ningún jugador y tienen su propio botón.
+// `directo:true` = nacidos en el modo en directo. No salen en el panel ⚑ Equipo
+// de la pizarra (allí seguirían los tres de siempre) porque su sitio es la
+// rejilla de la pantalla completa, donde se registran en dos pulsaciones.
 const EVENTOS_EQUIPO=[
   {t:'llegada_area',  n:'Llegada al área',             ic:'🥅', zona:true, ayuda:'Carril de origen de la jugada'},
   {t:'llegada_rival', n:'Llegada del rival',           ic:'⚠️', zona:true, ayuda:'Zona por la que llega: los 9 cuadrantes'},
-  {t:'dos_por_uno',   n:'2x1 con centro al área',      ic:'👥', zona:true, ayuda:'Carril de origen'}
+  {t:'dos_por_uno',   n:'2x1 con centro al área',      ic:'👥', zona:true, ayuda:'Carril de origen'},
+  {t:'llegada_banda', n:'Llegada por banda',           ic:'↗',  zona:true, directo:true},
+  {t:'duelo_ganado',  n:'Duelo ganado',                ic:'💪', zona:true, directo:true},
+  {t:'ocasion_conc',  n:'Ocasión concedida',           ic:'❗', zona:true, directo:true},
+  {t:'corner_favor',  n:'Córner a favor',              ic:'⛳', zona:false, directo:true},
+  {t:'corner_contra', n:'Córner en contra',            ic:'🚩', zona:false, directo:true}
 ];
 const TIPO_LEGADO={recovery:'recuperacion',loss:'perdida',dribble_ok:'regate_ok',dribble_ko:'regate_fallo',shot:'tiro_puerta'};
 const TODOS_EVENTOS=EVENTOS.concat(EVENTOS_EQUIPO);
@@ -71,6 +86,10 @@ function normalizeEvent(e){
   e.ambito=e.ambito||(e.tipo==='sub'?'sistema':(esEquipo(e.tipo)?'equipo':'jugador'));
   if(e.jugadorId===undefined)e.jugadorId=e.playerId??null;
   e.zona=ZONA_ETI[e.zona]?e.zona:null;   // undefined, '' o una zona desconocida cuentan como "sin zona"
+  // Se recalculan siempre desde la zona: así un evento al que se le corrige el
+  // cuadrante desde el informe no se queda con la fila y el carril antiguos.
+  e.fila=filaDe(e.zona);e.carril=carrilDe(e.zona);
+  e.partidoId=e.partidoId||null;
   if(e.minuto===undefined)e.minuto=e.min??null;
   if(e.parte===undefined)e.parte=e.half||1;
   e.origen=e.origen||'legado';
@@ -97,6 +116,9 @@ function normalizeState(s){
   L.running=false;              // siempre en pausa al cargar: ni tiempo fantasma ni doble conteo entre dispositivos
   L.half=L.half||1;L.halfLength=L.halfLength||45;L.elapsed=L.elapsed||0;
   L.minutes=L.minutes||{};      // segundos acumulados por jugador propio
+  // Identificador del partido: se sella en cada evento para que el informe (que
+  // es por partido) y el JSON de la copia sepan a cuál pertenece cada acción.
+  L.matchId=L.matchId||'';
   L.events=(Array.isArray(L.events)?L.events:[]).map(normalizeEvent).filter(Boolean);
   // called = ids convocados. undefined significa "aún no elegidos": la primera
   // vez se propone automáticamente a todos los disponibles.
@@ -472,6 +494,9 @@ function renderAll(){applyBrand();renderBoard();renderSquad();renderRivals();ren
    la foto del jugador en la pizarra, en modo Mover (la herramienta por defecto). */
 function rosterOf(team){return team==='rival'?state.rivals:state.players}
 function nombreDe(team,id){const p=rosterOf(team).find(x=>x.id===id);return p?p.name:'—'}
+// Un gol sin goleador viene del modo en directo, donde no se pregunta quién lo
+// metió: se marca como pendiente en vez de dejar un guion que parece un error.
+function goleadorDe(team,id){const p=rosterOf(team).find(x=>x.id===id);return p?p.name:(id?'—':'Sin asignar')}
 
 /* ===== Selector de zona: un único componente =====
    Lo usan los eventos de jugador, los de equipo y la corrección de zona desde el
@@ -582,9 +607,24 @@ function fillAssist(){$('#goalAssist').innerHTML='<option value="">Sin asistenci
    se recogen las tres cosas que necesita el informe —goleador, asistente y
    cuadrante— en una sola pasada. Sin zona por defecto: si no se toca, el gol
    entra igual y solo se queda fuera del mapa. */
-let goalZone=null;
+let goalZone=null,goalEditId=null;
+/* Un gol apuntado en el modo en directo entra sin goleador: allí no se pregunta
+   nada más que la zona. Se le pone nombre después, desde el marcador, editando
+   ESE gol; si se usara "Asignar gol" habría dos goles para el mismo remate. */
+function openGoalAsignar(gid){
+  const gol=(state.match.goals||[]).find(g=>g.id===gid);if(!gol)return;
+  goalEditId=gid;goalTeam=gol.team;goalZone=null;
+  const nombre=gol.team==='rival'?(state.match.opponent||'Rival'):(state.club||'Equipo');
+  $('#goalEyebrow').textContent=nombre.toUpperCase()+' · GOL DEL MINUTO '+(gol.min||'—');
+  $('#goalScorer').innerHTML=goalOptions(gol.team,null);
+  $('#goalScorer').value=gol.scorerId||'';fillAssist();
+  $('#goalAssist').value=gol.assistId||'';
+  // La zona ya la tiene el evento del gol: no se vuelve a preguntar.
+  $('#goalZone').hidden=true;$('#goalZone').innerHTML='';
+  $('#goalDialog').showModal()
+}
 function openGoalDialog(id,team){
-  goalTeam=team;goalZone=null;
+  goalTeam=team;goalZone=null;goalEditId=null;
   const nombre=team==='rival'?(state.match.opponent||'Rival'):(state.club||'Equipo');
   $('#goalEyebrow').textContent=nombre.toUpperCase()+' · GOL';
   $('#goalScorer').innerHTML=goalOptions(team,null);
@@ -607,6 +647,7 @@ $('#goalForm').onsubmit=e=>{
   e.preventDefault();
   const scorerId=$('#goalScorer').value;if(!scorerId)return;
   const assistId=$('#goalAssist').value||null,vivo=state.live.started&&!state.live.finished;
+  if(goalEditId){asignarGoleador(goalEditId,scorerId,assistId);return}
   const gol={id:'g'+Date.now(),team:goalTeam,scorerId,assistId,min:vivo?liveMinute():null};
   state.match.goals.push(gol);
   /* Con el partido en directo, el gol entra a la vez en el marcador y en los
@@ -626,11 +667,32 @@ $('#goalForm').onsubmit=e=>{
   }
   $('#goalDialog').close();persist(true);renderBoard();refrescarPaneles();showToast(assistId?'Gol y asistencia registrados':'Gol registrado')
 };
+/* Pone nombre a un gol que ya existe: no crea otro, reescribe el que hay y su
+   evento. La asistencia hereda minuto y zona del gol, que es la misma jugada. */
+function asignarGoleador(gid,scorerId,assistId){
+  const gol=state.match.goals.find(g=>g.id===gid);
+  goalEditId=null;
+  if(!gol){$('#goalDialog').close();return}
+  gol.scorerId=scorerId;gol.assistId=assistId;
+  const ev=state.live.events.find(x=>x.id===gol.evId);
+  if(ev){ev.jugadorId=scorerId;ev.ambito='jugador';ev.team=gol.team;cloudSaveEvent(ev)}
+  const asis=gol.asisEvId?state.live.events.find(x=>x.id===gol.asisEvId):null;
+  if(assistId){
+    if(asis){asis.jugadorId=assistId;asis.ambito='jugador';cloudSaveEvent(asis)}
+    else gol.asisEvId=crearEvento({tipo:'asistencia',ambito:'jugador',jugadorId:assistId,team:gol.team,
+      zona:ev?ev.zona:null,minuto:gol.min,parte:ev?ev.parte:state.live.half,origen:'asignado'}).id
+  }else if(gol.asisEvId){
+    const id=gol.asisEvId;gol.asisEvId=null;
+    state.live.events=state.live.events.filter(x=>x.id!==id);cloudDeleteEvent(id)
+  }
+  $('#goalDialog').close();persist(true);renderBoard();refrescarPaneles();
+  showToast(assistId?'Goleador y asistencia asignados':'Goleador asignado')
+}
 function renderScoreboard(){
   const box=$('#scoreboard');if(!box)return;
   const g=state.match.goals||[];
   const own=g.filter(x=>x.team==='own').length,riv=g.filter(x=>x.team==='rival').length;
-  const nameOf=(team,pid)=>{const p=rosterOf(team).find(x=>x.id===pid);return p?p.name:'—'};
+  const nameOf=goleadorDe;
   // Local a la izquierda (side 'home'), visitante a la derecha ('away'). El balón
   // se coloca hacia la línea central para que cada columna "mire" al marcador.
   const item=(x,side)=>{
@@ -640,7 +702,7 @@ function renderScoreboard(){
     const main=side==='home'
       ?`<span class="g-name">${scorer}</span><span class="g-ball">⚽</span>${min}`
       :`${min}<span class="g-ball">⚽</span><span class="g-name">${scorer}</span>`;
-    return `<li class="g-row"><div class="g-main">${main}</div>${assist}<button class="g-del" data-goal="${x.id}" title="Quitar gol" aria-label="Quitar gol">×</button></li>`
+    return `<li class="g-row${x.scorerId?'':' sin-asignar'}"><div class="g-main" data-assign="${x.id}" title="${x.scorerId?'Cambiar goleador':'Asignar goleador'}">${main}</div>${assist}<button class="g-del" data-goal="${x.id}" title="Quitar gol" aria-label="Quitar gol">×</button></li>`
   };
   const homeCol=g.filter(x=>x.team==='own').map(x=>item(x,'home')).join('');
   const awayCol=g.filter(x=>x.team==='rival').map(x=>item(x,'away')).join('');
@@ -653,6 +715,7 @@ function renderScoreboard(){
     </div>`
     +(g.length?`<div class="score-goals"><ul class="goal-col home">${homeCol}</ul><span class="goal-divider"></span><ul class="goal-col away">${awayCol}</ul></div>`
               :`<p class="score-hint">Clic derecho (PC) o pulsación larga (móvil) sobre un jugador para asignar un gol.</p>`);
+  $$('#scoreboard [data-assign]').forEach(b=>b.onclick=()=>openGoalAsignar(b.dataset.assign));
   $$('[data-goal]').forEach(b=>b.onclick=()=>{
     const gid=b.dataset.goal,gol=state.match.goals.find(x=>x.id===gid);
     state.match.goals=state.match.goals.filter(x=>x.id!==gid);
@@ -818,23 +881,34 @@ function liveTick(){
   updateLiveClockDOM();updateLiveMinutesDOM();
   if(++liveSaveCount>=20){liveSaveCount=0;persist()}
 }
-function updateLiveClockDOM(){const c=$('#liveClock');if(!c)return;c.textContent=fmtClock(state.live.elapsed);const ov=$('#liveOver');if(ov){const reg=state.live.halfLength*60;ov.textContent=state.live.elapsed>reg?`+${Math.floor((state.live.elapsed-reg)/60)}′`:''}}
+function updateLiveClockDOM(){
+  const c=$('#liveClock');
+  if(c){
+    c.textContent=fmtClock(state.live.elapsed);
+    const ov=$('#liveOver');if(ov){const reg=state.live.halfLength*60;ov.textContent=state.live.elapsed>reg?`+${Math.floor((state.live.elapsed-reg)/60)}′`:''}
+  }
+  lmPintarReloj()   // el reloj de la pantalla completa se refresca aparte, sin repintarla entera
+}
 function updateLiveMinutesDOM(){$$('#pitchPlayers .live-min').forEach(u=>{u.textContent=Math.floor((state.live.minutes[u.dataset.min]||0)/60)+'′'})}
 
 function liveStart(){
   const L=state.live;
   if(!tactic().placed.length&&!confirm('No hay jugadores en el campo. Los minutos no contarán hasta que coloques a tu equipo. ¿Empezar igualmente?'))return;
   L.started=true;L.finished=false;L.running=true;L.half=1;L.elapsed=0;L.minutes={};limpiarEventos();
-  liveSaveCount=0;persist();renderBoard();liveStartTicking();showToast('¡Partido en marcha!')
+  L.matchId='m'+Date.now().toString(36);
+  liveSaveCount=0;persist();renderBoard();liveStartTicking();
+  // Los datos del partido (rival, competición, fecha, lugar) ya están en la
+  // tarjeta "Próximo partido": no se vuelven a pedir, se abre y a registrar.
+  abrirDirecto()
 }
 function livePause(){state.live.running=false;liveStopTicking();persist();renderLive()}
 function liveResume(){state.live.running=true;persist();renderLive();liveStartTicking()}
-function liveEndHalf(){const L=state.live;L.running=false;liveStopTicking();const fin=halfName(L.half);L.half++;L.elapsed=0;liveSaveCount=0;persist();renderBoard();showToast('Fin de la '+fin)}
-function liveFinish(){const L=state.live;L.running=false;L.finished=true;liveStopTicking();persist();renderBoard();openReport()}
+function liveEndHalf(){const L=state.live;L.running=false;liveStopTicking();const fin=halfName(L.half);L.half++;L.elapsed=0;liveSaveCount=0;lmAutoOrientacion();persist();renderBoard();showToast('Fin de la '+fin)}
+function liveFinish(){const L=state.live;L.running=false;L.finished=true;liveStopTicking();cerrarDirecto();persist();renderBoard();openReport()}
 function liveReset(){
   if(!confirm('¿Reiniciar el partido? Se ponen a cero el marcador, el cronómetro, los minutos y los eventos. No se puede deshacer.'))return;
   limpiarEventos();
-  state.live={started:false,finished:false,running:false,half:1,halfLength:state.live.halfLength||45,elapsed:0,minutes:{},events:[]};
+  state.live={started:false,finished:false,running:false,half:1,halfLength:state.live.halfLength||45,elapsed:0,minutes:{},events:[],matchId:''};
   // Los goles viven en state.match.goals, dentro del JSON de la pizarra: al
   // vaciarlos aquí, el persist() de abajo sube el documento ya a cero. Los
   // eventos de gol enlazados están en la subcolección y se los ha llevado
@@ -861,10 +935,10 @@ function renderLive(){
     if(L.finished){
       controls=`<button type="button" class="btn secondary" id="liveReport">📄 Informe</button><button type="button" class="btn secondary" id="liveReset">↺ Nuevo partido</button>`;
     }else if(L.running){
-      controls=`<button type="button" class="btn secondary" id="teamEvBtn">⚑ Equipo</button><button type="button" class="btn secondary" id="livePause">⏸ Pausa</button><button type="button" class="btn secondary" id="liveEndHalf">⏹ Fin de parte</button><button type="button" class="btn secondary" id="liveReport">📄 Informe</button><button type="button" class="btn primary" id="liveFinish">Finalizar</button>`;
+      controls=`<button type="button" class="btn primary" id="liveFull">⛶ Registrar</button><button type="button" class="btn secondary" id="teamEvBtn">⚑ Equipo</button><button type="button" class="btn secondary" id="livePause">⏸ Pausa</button><button type="button" class="btn secondary" id="liveEndHalf">⏹ Fin de parte</button><button type="button" class="btn secondary" id="liveReport">📄 Informe</button><button type="button" class="btn secondary" id="liveFinish">Finalizar</button>`;
     }else{
       const resumeLabel=L.elapsed===0?('▶ Iniciar '+halfName(L.half)):'▶ Reanudar';
-      controls=`${L.elapsed===0?lenChips:''}<button type="button" class="btn secondary" id="teamEvBtn">⚑ Equipo</button><button type="button" class="btn primary" id="liveResume">${resumeLabel}</button><button type="button" class="btn secondary" id="liveReport">📄 Informe</button><button type="button" class="btn secondary" id="liveFinish">Finalizar</button>`;
+      controls=`${L.elapsed===0?lenChips:''}<button type="button" class="btn primary" id="liveResume">${resumeLabel}</button><button type="button" class="btn secondary" id="liveFull">⛶ Registrar</button><button type="button" class="btn secondary" id="teamEvBtn">⚑ Equipo</button><button type="button" class="btn secondary" id="liveReport">📄 Informe</button><button type="button" class="btn secondary" id="liveFinish">Finalizar</button>`;
     }
     html=`<div class="live-run">${clock}<div class="live-controls">${controls}</div></div>`;
   }
@@ -875,7 +949,8 @@ function renderLive(){
   bind('liveStart',liveStart);bind('livePause',livePause);bind('liveResume',liveResume);
   bind('liveEndHalf',liveEndHalf);bind('liveFinish',liveFinish);bind('liveReset',liveReset);bind('liveReport',openReport);
   bind('teamEvBtn',e=>{e.stopPropagation();openTeamMenu()});
-  renderTeamFab();
+  bind('liveFull',abrirDirecto);
+  renderTeamFab();renderLiveScreen();
   // Si el partido sigue en marcha y este dispositivo es el cronometrador, mantener el tick tras cada re-render.
   if(L.started&&L.running&&isTimekeeper)liveStartTicking()
 }
@@ -892,7 +967,8 @@ function crearEvento(base){
   const L=state.live;
   const ev=normalizeEvent(Object.assign({
     id:nuevoId(),ambito:'jugador',jugadorId:null,zona:null,
-    minuto:liveMinute(),parte:L.half,origen:'rol_'+rolRegistro,ts:Date.now(),team:'own'
+    minuto:liveMinute(),parte:L.half,origen:'rol_'+rolRegistro,ts:Date.now(),team:'own',
+    partidoId:L.matchId||null
   },base));
   L.events.push(ev);cloudSaveEvent(ev);persist();
   return ev
@@ -915,7 +991,8 @@ function borrarEvento(id){
 }
 function cambiarZonaEvento(id,zona){
   const ev=state.live.events.find(e=>e.id===id);if(!ev)return;
-  ev.zona=zona;ev.ts=ev.ts||Date.now();cloudSaveEvent(ev);persist();refrescarPaneles()
+  ev.zona=zona;ev.fila=filaDe(zona);ev.carril=carrilDe(zona);
+  ev.ts=ev.ts||Date.now();cloudSaveEvent(ev);persist();refrescarPaneles()
 }
 function refrescarPaneles(){
   if($('#reportView').classList.contains('active'))renderReport();
@@ -976,7 +1053,7 @@ function renderTeamMenu(){
   const m=$('#teamMenu');
   m.innerHTML=`<div class="tm-head"><span class="eyebrow">EVENTOS DE EQUIPO</span><button type="button" class="tm-close">×</button></div>
     <p class="tm-help">Pulsación larga sobre el contador para restar uno.</p>
-    ${EVENTOS_EQUIPO.map(e=>`<button type="button" class="tm-ev" data-ev="${e.t}"><i>${e.ic}</i><span><strong>${esc(e.n)}</strong><small>${esc(e.ayuda||'')}</small></span><b class="tm-count" data-count="${e.t}">${contarTipo(e.t)}</b></button>`).join('')}
+    ${EVENTOS_EQUIPO.filter(e=>!e.directo).map(e=>`<button type="button" class="tm-ev" data-ev="${e.t}"><i>${e.ic}</i><span><strong>${esc(e.n)}</strong><small>${esc(e.ayuda||'')}</small></span><b class="tm-count" data-count="${e.t}">${contarTipo(e.t)}</b></button>`).join('')}
     <div class="tm-rol"><span>Rol de este dispositivo</span><span class="tm-rol-chips"><button type="button" class="tm-rol-chip${rolRegistro==='individual'?' on':''}" data-rol="individual">Individual</button><button type="button" class="tm-rol-chip${rolRegistro==='equipo'?' on':''}" data-rol="equipo">Equipo</button></span></div>`;
   m.querySelector('.tm-close').onclick=closeTeamMenu;
   m.querySelectorAll('[data-rol]').forEach(b=>b.onclick=e=>{e.stopPropagation();setRol(b.dataset.rol)});
@@ -1009,14 +1086,266 @@ function pedirZonaEnEquipo(def){
 }
 $('#teamFab').onclick=e=>{e.stopPropagation();$('#teamMenu').classList.contains('hidden')?openTeamMenu():closeTeamMenu()};
 
+/* ===== Modo en directo: pantalla completa =====
+   Dos pantallas y nada más. La 1 es la rejilla de ocho eventos; la 2, el campo
+   en 3×3. Registrar cuesta dos pulsaciones —evento → cuadrante— y ninguna
+   espera a la red: el evento ya está en memoria y en el navegador antes de
+   salir hacia la nube (ver cloudSaveEvent), así que la confirmación se pinta al
+   instante aunque no haya cobertura.
+   Los córners no tienen cuadrante y se quedan en una sola pulsación, por eso
+   viven en su propia fila, separados de los ocho de dos pasos: pulsar uno por
+   error y que se guarde sin preguntar nada sería el fallo más caro de todos. */
+const DIRECTO_ATAQUE=['llegada_banda','llegada_area','tiro_puerta','gol'];
+const DIRECTO_DEFENSA=['recuperacion','perdida','duelo_ganado','ocasion_conc'];
+const DIRECTO_CORNERS=['corner_favor','corner_contra'];
+// Nombres cortos: en la rejilla mandan el tamaño de letra y la legibilidad al
+// sol. El nombre largo del catálogo se sigue usando en el informe.
+const DIRECTO_NOM={llegada_banda:'Llegada por banda',llegada_area:'Entrada al área',tiro_puerta:'Tiro',gol:'GOL',
+  recuperacion:'Recuperación',perdida:'Pérdida',duelo_ganado:'Duelo ganado',ocasion_conc:'Ocasión concedida',
+  corner_favor:'Córner a favor',corner_contra:'Córner en contra'};
+/* Los iconos del catálogo valen para una lista pequeña, pero los círculos de
+   color de recuperación y pérdida se pierden encima de un botón ya coloreado.
+   Aquí se cambian por dos signos monocromos que heredan el blanco del texto y
+   se leen como pareja: ganamos el balón / lo perdemos. En el informe siguen
+   saliendo los del catálogo, que es donde el color sí ayuda. */
+const DIRECTO_IC={recuperacion:'⊕',perdida:'⊖'};
+const DIRECTO_ZONA_MS=8000,   // sin tocar nada, la pantalla de zonas se cierra sola
+      DIRECTO_REBOTE=300;     // dos toques más juntos que esto son el mismo dedo
+
+let lmAbierto=false,lmEquipo='own',lmInvertido=false,lmEvPend=null,
+    lmAutoCancel=null,lmUltimoToque=0,lmDeshacer=[],lmFlashTimer=null,lmWake=null;
+
+/* La convención es fija: se ataca hacia arriba. En la 2ª parte se cambia de
+   campo, así que el dibujo se da la vuelta solo al empezarla. El toggle manual
+   manda a partir de ahí, por si quien registra se cambia de banda. */
+function lmAutoOrientacion(){lmInvertido=state.live.half%2===0;lmPintarOrientacion()}
+const lmZonaDe=i=>lmInvertido?ZONAS[8-i]:ZONAS[i];   // giro de 180°: también se cruzan los carriles
+
+async function lmPedirWakeLock(){
+  try{if('wakeLock' in navigator)lmWake=await navigator.wakeLock.request('screen')}catch(_){}
+}
+function lmSoltarWakeLock(){try{lmWake&&lmWake.release()}catch(_){}lmWake=null}
+document.addEventListener('visibilitychange',()=>{if(lmAbierto&&document.visibilityState==='visible'&&!lmWake)lmPedirWakeLock()});
+
+function abrirDirecto(){
+  const L=state.live;
+  if(!L.started||L.finished)return;
+  lmAbierto=true;lmEvPend=null;lmEquipo='own';
+  // Se conserva lo que aún exista: salir a asignar un goleador y volver no
+  // debería vaciar el deshacer. Al empezar un partido nuevo la pila se queda
+  // vacía sola, porque liveStart() se ha llevado por delante esos eventos.
+  lmDeshacer=lmDeshacer.filter(p=>p.ids.some(id=>L.events.some(e=>e.id===id)));
+  lmAutoOrientacion();
+  $('#liveScreen').hidden=false;
+  document.body.classList.add('lm-on');
+  $('#lmP2').hidden=true;$('#lmP1').hidden=false;
+  renderLiveScreen();lmPedirWakeLock();
+  if(L.running)liveStartTicking()
+}
+function cerrarDirecto(){
+  if(!lmAbierto)return;
+  lmAbierto=false;lmCancelarZona();
+  $('#liveScreen').hidden=true;
+  document.body.classList.remove('lm-on');
+  lmSoltarWakeLock()
+}
+
+function renderLiveScreen(){
+  if(!lmAbierto)return;
+  const L=state.live;
+  if(!L.started||L.finished){cerrarDirecto();return}
+  if(!$('#lmGrid').childElementCount)lmPintarRejilla();
+  lmPintarReloj();lmPintarContador();pintarSyncDirecto();lmPintarEquipo();lmPintarOrientacion();lmPintarDeshacer();
+  const p=$('#lmPause');
+  p.textContent=L.running?'⏸':'▶';
+  p.classList.toggle('go',!L.running);
+  p.title=L.running?'Pausa':(L.elapsed===0?'Iniciar '+halfName(L.half):'Reanudar');
+  $('#lmHalfBtn').disabled=L.elapsed===0&&!L.running
+}
+function lmPintarReloj(){
+  if(!lmAbierto)return;
+  const L=state.live,reg=L.halfLength*60,c=$('#lmClock');
+  if(!c)return;
+  c.textContent=fmtClock(L.elapsed)+(L.elapsed>reg?` +${Math.floor((L.elapsed-reg)/60)}′`:'');
+  $('#lmMinute').textContent=(liveMinute()||0)+'′';
+  $('#lmHalf').textContent=halfName(L.half)+(L.running?'':(L.elapsed===0?' · sin empezar':' · en pausa'));
+  $('#liveScreen').classList.toggle('paused',!L.running)
+}
+function lmPintarContador(){const c=$('#lmCount');if(c)c.textContent=eventosDelPartido().length}
+function lmPintarEquipo(){
+  const b=$('#lmTeam');if(!b)return;
+  const riv=lmEquipo==='rival';
+  b.classList.toggle('rival',riv);b.setAttribute('aria-pressed',String(riv));
+  $('#lmTeamTxt').textContent=riv?(state.match.opponent||'Rival').toUpperCase():'NOSOTROS';
+  $('#liveScreen').classList.toggle('rival',riv)
+}
+function lmPintarOrientacion(){const t=$('#lmzFlipTxt');if(t)t.textContent=lmInvertido?'Atacamos ↓':'Atacamos ↑'}
+function lmPintarDeshacer(){
+  const b=$('#lmUndo');if(!b)return;
+  b.disabled=!lmDeshacer.length;
+  b.querySelector('span').textContent=lmDeshacer.length
+    ?'Deshacer: '+lmDeshacer[lmDeshacer.length-1].texto
+    :'Deshacer última acción'
+}
+
+function lmBotonHTML(t,clase){
+  const d=EVENTO_DEF[t]||{};
+  return `<button type="button" class="lm-ev ${clase}${t==='gol'?' gol':''}" data-ev="${t}"><i>${DIRECTO_IC[t]||d.ic||''}</i><span>${esc(DIRECTO_NOM[t]||d.n||t)}</span></button>`
+}
+function lmPintarRejilla(){
+  // Fila a fila y alternando columna: ataque a la izquierda, defensa a la derecha.
+  $('#lmGrid').innerHTML=[0,1,2,3].map(i=>lmBotonHTML(DIRECTO_ATAQUE[i],'of')+lmBotonHTML(DIRECTO_DEFENSA[i],'def')).join('');
+  $('#lmCorners').innerHTML=DIRECTO_CORNERS.map(t=>{
+    const d=EVENTO_DEF[t]||{};
+    return `<button type="button" class="lm-corner" data-ev="${t}"><i>${d.ic||''}</i><span>${esc(DIRECTO_NOM[t])}</span></button>`
+  }).join('')
+}
+
+/* Campo de la pantalla 2: el dibujo va en SVG estirado al hueco disponible (solo
+   líneas, que aguantan el estirado) y encima los nueve botones en una rejilla
+   CSS. Así el texto no se deforma y cada cuadrante mantiene su altura mínima. */
+function lmCampoSVG(){
+  const W=300,H=420,cw=100,ch=140,lin='rgba(255,255,255,.55)',tenue='rgba(255,255,255,.26)';
+  const yRival=lmInvertido?H-9:0,yProp=lmInvertido?0:H-9;
+  let s=`<svg class="lmz-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`;
+  s+=`<rect x="3" y="3" width="${W-6}" height="${H-6}" fill="none" stroke="${lin}" stroke-width="2"/>`;
+  s+=`<line x1="3" y1="${H/2}" x2="${W-3}" y2="${H/2}" stroke="${lin}" stroke-width="2"/>`;
+  s+=`<circle cx="${W/2}" cy="${H/2}" r="46" fill="none" stroke="${lin}" stroke-width="2"/>`;
+  s+=`<rect x="70" y="3" width="160" height="60" fill="none" stroke="${lin}" stroke-width="2"/>`;
+  s+=`<rect x="70" y="${H-63}" width="160" height="60" fill="none" stroke="${lin}" stroke-width="2"/>`;
+  [1,2].forEach(i=>{
+    s+=`<line x1="${i*cw}" y1="3" x2="${i*cw}" y2="${H-3}" stroke="${tenue}" stroke-width="1.5" stroke-dasharray="8 8"/>`;
+    s+=`<line x1="3" y1="${i*ch}" x2="${W-3}" y2="${i*ch}" stroke="${tenue}" stroke-width="1.5" stroke-dasharray="8 8"/>`
+  });
+  s+=`<rect x="118" y="${yRival}" width="64" height="9" fill="#ffd166"/>`;
+  s+=`<rect x="118" y="${yProp}" width="64" height="9" fill="rgba(255,255,255,.5)"/>`;
+  return s+'</svg>'
+}
+function lmCampoHTML(){
+  const celdas=ZONAS.map((_,i)=>{
+    const z=lmZonaDe(i);
+    return `<button type="button" class="lmz-cell" data-zona="${z}"><b>${ZONA_ETI[z]}</b></button>`
+  }).join('');
+  const arriba=lmInvertido?'NUESTRA PORTERÍA':'PORTERÍA RIVAL',abajo=lmInvertido?'PORTERÍA RIVAL':'NUESTRA PORTERÍA';
+  return `<div class="lmz-pitch">${lmCampoSVG()}<span class="lmz-tag top">${arriba}</span><div class="lmz-grid">${celdas}</div><span class="lmz-tag bot">${abajo}</span></div>`
+}
+
+function lmPulsarEvento(t){
+  const def=EVENTO_DEF[t];if(!def)return;
+  if(def.zona===false){lmRegistrar(t,null);return}   // córner: se guarda ya, con su minuto
+  lmAbrirZonas(t)
+}
+function lmAbrirZonas(t){
+  const def=EVENTO_DEF[t]||{};
+  lmEvPend=t;lmUltimoToque=0;
+  $('#lmzTitle').textContent=DIRECTO_NOM[t]||def.n||t;
+  $('#lmzHint').textContent=lmEquipo==='rival'?'Acción del rival · toca la zona':'Toca la zona donde ha pasado';
+  $('#lmzField').innerHTML=lmCampoHTML();
+  $('#lmP1').hidden=true;$('#lmP2').hidden=false;
+  lmArmarAutoCancel()
+}
+function lmArmarAutoCancel(){
+  clearTimeout(lmAutoCancel);
+  lmAutoCancel=setTimeout(()=>{lmCancelarZona();showToast('Sin registrar')},DIRECTO_ZONA_MS)
+}
+function lmCancelarZona(){
+  clearTimeout(lmAutoCancel);lmAutoCancel=null;lmEvPend=null;
+  const p2=$('#lmP2');if(p2){p2.hidden=true;$('#lmP1').hidden=false}
+}
+function lmTocarZona(z,btn){
+  const ahora=Date.now();
+  if(ahora-lmUltimoToque<DIRECTO_REBOTE)return;
+  lmUltimoToque=ahora;
+  const t=lmEvPend;if(!t)return;
+  lmEvPend=null;clearTimeout(lmAutoCancel);
+  btn.classList.add('hit');
+  // Vuelta a la pantalla 1 sin esperar a nada: el flash dura menos de lo que
+  // tarda el dedo en levantarse del cristal.
+  setTimeout(()=>{const p2=$('#lmP2');if(p2&&!lmEvPend){p2.hidden=true;$('#lmP1').hidden=false}},180);
+  lmRegistrar(t,z)
+}
+function lmRegistrar(tipo,zona){
+  const L=state.live;if(!L.started||L.finished)return;
+  const ids=[],ev=crearEvento({tipo,ambito:'equipo',jugadorId:null,team:lmEquipo,zona,origen:'directo'});
+  ids.push(ev.id);
+  /* Un gol es también un remate. Si no se duplicase, la distribución de tiros
+     dejaría fuera precisamente los que acabaron dentro. Mismo minuto, misma
+     zona y mismo equipo; el origen los distingue por si hay que separarlos. */
+  if(tipo==='gol'){
+    ids.push(crearEvento({tipo:'tiro_puerta',ambito:'equipo',jugadorId:null,team:lmEquipo,zona,origen:'directo_gol'}).id);
+    // El marcador no se pregunta aquí: el gol entra sin goleador y se le asigna
+    // luego desde la pizarra, que es donde están las caras y los dorsales.
+    const gol={id:'g'+Date.now(),team:lmEquipo,scorerId:null,assistId:null,min:ev.minuto,evId:ev.id};
+    state.match.goals.push(gol);ev.golId=gol.id;cloudSaveEvent(ev);renderScoreboard()
+  }
+  const texto=`${EVENTO_IC[tipo]||''} ${DIRECTO_NOM[tipo]||EVENTO_NOM[tipo]||tipo}${zona?' · '+ZONA_ETI[zona]:''}${lmEquipo==='rival'?' · rival':''}`;
+  lmDeshacer.push({ids,texto});
+  if(lmDeshacer.length>5)lmDeshacer.shift();
+  try{navigator.vibrate&&navigator.vibrate(30)}catch(_){}
+  lmConfirmar(texto);lmPintarContador();lmPintarDeshacer();persist();refrescarPaneles()
+}
+function lmConfirmar(texto){
+  const f=$('#lmFlash');if(!f)return;
+  f.textContent=texto;f.hidden=false;
+  // Fuerza el reinicio de la animación cuando llegan dos registros seguidos.
+  f.classList.remove('on');void f.offsetWidth;f.classList.add('on');
+  clearTimeout(lmFlashTimer);
+  lmFlashTimer=setTimeout(()=>{f.classList.remove('on');f.hidden=true},900)
+}
+function lmDeshacerUltima(){
+  const paso=lmDeshacer.pop();
+  if(!paso){showToast('No hay nada que deshacer');return}
+  paso.ids.forEach(id=>borrarEvento(id));
+  try{navigator.vibrate&&navigator.vibrate(20)}catch(_){}
+  lmPintarContador();lmPintarDeshacer();lmConfirmar('Deshecho · '+paso.texto)
+}
+function lmToggleEquipo(){
+  lmEquipo=lmEquipo==='rival'?'own':'rival';
+  lmPintarEquipo();
+  if(lmEvPend){$('#lmzHint').textContent=lmEquipo==='rival'?'Acción del rival · toca la zona':'Toca la zona donde ha pasado';lmArmarAutoCancel()}
+  try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}
+}
+function lmInvertir(){
+  lmInvertido=!lmInvertido;lmPintarOrientacion();
+  if(lmEvPend){$('#lmzField').innerHTML=lmCampoHTML();lmArmarAutoCancel()}
+}
+/* Cableado: los nodos de la pantalla completa son fijos y están en el HTML, así
+   que se enlazan una sola vez. Los botones de evento van por delegación porque
+   la rejilla se pinta desde JS. */
+$('#lmP1').addEventListener('click',e=>{
+  const b=e.target.closest('[data-ev]');
+  if(b)lmPulsarEvento(b.dataset.ev)
+});
+$('#lmzField').addEventListener('click',e=>{
+  const b=e.target.closest('[data-zona]');
+  if(b)lmTocarZona(b.dataset.zona,b)
+});
+$('#lmzClose').onclick=lmCancelarZona;
+$('#lmzFlip').onclick=lmInvertir;
+$('#lmUndo').onclick=lmDeshacerUltima;
+$('#lmTeam').onclick=lmToggleEquipo;
+$('#lmPause').onclick=()=>{state.live.running?livePause():liveResume()};
+$('#lmHalfBtn').onclick=()=>{
+  const L=state.live;
+  if(confirm(`¿Dar por terminada la ${halfName(L.half)}?`))liveEndHalf()
+};
+$('#lmFinish').onclick=()=>{if(confirm('¿Finalizar el partido y abrir el informe?'))liveFinish()};
+$('#lmExit').onclick=()=>{cerrarDirecto();renderBoard();showToast('El partido sigue en marcha')};
+addEventListener('keydown',e=>{
+  if(!lmAbierto||e.key!=='Escape')return;
+  e.preventDefault();
+  lmEvPend?lmCancelarZona():cerrarDirecto()
+});
+
 /* ===== Informe del partido: campo, mapa de calor y tablas =====
    Vista propia, no pop-up: el campo con la rejilla 3×3 es lo primero que se ve.
    Las métricas derivadas (pérdidas en inicio de juego, en zona media o en campo
    rival) se calculan aquí a partir de los eventos `perdida`; no tienen botón
    propio para que no haya dos cuentas distintas del mismo dato. */
 const METRICAS=[
-  {id:'llegada_area', g:'Ataque',    n:'Llegadas al área',            c:'verde', f:e=>e.tipo==='llegada_area'},
-  {id:'tiro_puerta',  g:'Ataque',    n:'Tiros a puerta',              c:'verde', f:e=>e.tipo==='tiro_puerta'},
+  {id:'llegada_area', g:'Ataque',    n:'Entradas al área',            c:'verde', f:e=>e.tipo==='llegada_area'},
+  {id:'llegada_banda',g:'Ataque',    n:'Llegadas por banda (origen del ataque)', c:'verde', f:e=>e.tipo==='llegada_banda'},
+  {id:'tiro_puerta',  g:'Ataque',    n:'Tiros (distribución)',        c:'verde', f:e=>e.tipo==='tiro_puerta'},
   {id:'centro_remate',g:'Ataque',    n:'Centros con remate',          c:'verde', f:e=>e.tipo==='centro_remate'},
   {id:'dos_por_uno',  g:'Ataque',    n:'2x1 con centro al área',      c:'verde', f:e=>e.tipo==='dos_por_uno'},
   {id:'profundidad',  g:'Ataque',    n:'Ataques a la profundidad',    c:'verde', f:e=>e.tipo==='profundidad'},
@@ -1029,24 +1358,32 @@ const METRICAS=[
   {id:'perdida_med',  g:'Defensa',   n:'Pérdidas en zona media',      c:'rojo',  f:e=>e.tipo==='perdida'&&zonaFranja(e.zona)==='med'},
   {id:'perdida_ata',  g:'Defensa',   n:'Pérdidas en campo rival',     c:'rojo',  f:e=>e.tipo==='perdida'&&zonaFranja(e.zona)==='ata'},
   {id:'recuperacion', g:'Defensa',   n:'Recuperaciones',              c:'verde', f:e=>e.tipo==='recuperacion'},
+  {id:'duelo_ganado', g:'Defensa',   n:'Duelos ganados',              c:'verde', f:e=>e.tipo==='duelo_ganado'},
+  {id:'ocasion_conc', g:'Defensa',   n:'Ocasiones concedidas',        c:'rojo',  f:e=>e.tipo==='ocasion_conc'},
   {id:'pase_fallido', g:'Defensa',   n:'Pases fallidos',              c:'rojo',  f:e=>e.tipo==='pase_fallido'},
   {id:'error_despeje',g:'Defensa',   n:'Errores en despeje',          c:'rojo',  f:e=>e.tipo==='error_despeje'},
   {id:'llegada_rival',g:'Defensa',   n:'Llegadas del rival',          c:'rojo',  f:e=>e.tipo==='llegada_rival'},
   {id:'balance',      g:'Combinada', n:'Balance defensivo (rec. − pérd.)', c:'div'},
   {id:'regate_pct',   g:'Combinada', n:'% de acierto en regate',      c:'pct'}
 ];
-const metricaDe=id=>METRICAS.find(m=>m.id===id)||METRICAS[9];
+// Por id, nunca por posición: la lista crece y un índice fijo acaba señalando
+// a otra métrica distinta de la que se quería por defecto.
+const metricaDe=id=>METRICAS.find(m=>m.id===id)||METRICAS.find(m=>m.id==='perdida');
 // 6 escalones discretos en vez de degradado: se lee mejor en el móvil y con sol.
 const RAMPA={rojo:['#eef3f0','#ffe1de','#ffb8b0','#f6867d','#e04e57','#a61f2b'],verde:['#eef3f0','#daf1e3','#a5e0bd','#59c78f','#199f68','#0c6742']};
 const pasoDe=(v,max)=>!v||max<=0?0:Math.max(1,Math.min(5,Math.ceil(Math.abs(v)/max*5)));
 const CAMPO_W=300,CAMPO_H=452;
 
 let repMetrica='perdida',repJugador='',repParte='',repMinDe=0,repMinA=130,repZona=null,repFiltrosAbiertos=false;
+/* Por defecto el mapa es el nuestro, como siempre. Desde el modo en directo
+   también se apuntan acciones del rival (con el toggle de la barra superior),
+   así que ahora el equipo es un filtro más en vez de un descarte fijo. */
+let repEquipo='own';
 
 function eventosDelPartido(){return state.live.events.filter(e=>e.tipo!=='sub')}
 function eventosFiltrados(){
   return eventosDelPartido().filter(e=>{
-    if(e.team==='rival')return false;                       // acciones de jugadores rivales: fuera del mapa propio
+    if(repEquipo&&(e.team||'own')!==repEquipo)return false;
     if(repJugador&&e.jugadorId!==repJugador)return false;
     if(repParte&&String(e.parte)!==repParte)return false;
     const m=e.minuto==null?0:e.minuto;
@@ -1146,20 +1483,22 @@ function renderReport(){
   // Filtros
   const jugadoresConDatos=state.players.filter(p=>eventosDelPartido().some(e=>e.jugadorId===p.id));
   $('#repFilterToggle').setAttribute('aria-expanded',String(repFiltrosAbiertos));
-  $('#repFilterToggle').textContent=(repFiltrosAbiertos?'▴':'▾')+' Filtros'+(repJugador||repParte||repMinDe>0||repMinA<130?' · activos':'');
+  $('#repFilterToggle').textContent=(repFiltrosAbiertos?'▴':'▾')+' Filtros'+(repJugador||repParte||repEquipo!=='own'||repMinDe>0||repMinA<130?' · activos':'');
   $('#repFilters').hidden=!repFiltrosAbiertos;
   $('#repFilters').innerHTML=`
+    <label>Equipo<select id="repF_eq"><option value="own"${repEquipo==='own'?' selected':''}>Nosotros</option><option value="rival"${repEquipo==='rival'?' selected':''}>${esc(state.match.opponent||'Rival')}</option><option value=""${repEquipo===''?' selected':''}>Los dos</option></select></label>
     <label>Jugador<select id="repF_jug"><option value="">Todos</option>${jugadoresConDatos.map(p=>`<option value="${p.id}"${repJugador===p.id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
     <label>Parte<select id="repF_parte"><option value="">Partido completo</option>${[1,2,3,4].filter(h=>h<=Math.max(2,L.half)).map(h=>`<option value="${h}"${repParte===String(h)?' selected':''}>${halfName(h)}</option>`).join('')}</select></label>
     <label>Desde el minuto<input id="repF_de" type="number" min="0" max="130" value="${repMinDe}" /></label>
     <label>Hasta el minuto<input id="repF_a" type="number" min="0" max="130" value="${repMinA}" /></label>
     <button type="button" class="text-btn" id="repF_reset">Quitar filtros</button>
     <p class="rep-note">Los filtros afectan al mapa y al resumen por zonas. Las tablas de equipo y de jugadores muestran el partido completo.</p>`;
+  $('#repF_eq').onchange=e=>{repEquipo=e.target.value;repZona=null;renderReport()};
   $('#repF_jug').onchange=e=>{repJugador=e.target.value;repZona=null;renderReport()};
   $('#repF_parte').onchange=e=>{repParte=e.target.value;repZona=null;renderReport()};
   $('#repF_de').onchange=e=>{repMinDe=Math.max(0,Math.min(130,+e.target.value||0));renderReport()};
   $('#repF_a').onchange=e=>{repMinA=Math.max(repMinDe,Math.min(130,+e.target.value||130));renderReport()};
-  $('#repF_reset').onclick=()=>{repJugador='';repParte='';repMinDe=0;repMinA=130;repZona=null;renderReport()};
+  $('#repF_reset').onclick=()=>{repEquipo='own';repJugador='';repParte='';repMinDe=0;repMinA=130;repZona=null;renderReport()};
 
   // Campo
   if(d.total===0){
@@ -1180,8 +1519,10 @@ function renderReport(){
 
   renderZoneDetail(m);
   renderTeamPanel();
+  renderHalvesPanel();
   renderPlayersPanel();
   renderSummaryPanel(m,d);
+  renderTimelinePanel();
   renderClassicPanel();
   $('#reportCount').textContent=eventosDelPartido().length
 }
@@ -1195,8 +1536,13 @@ function renderZoneDetail(m){
   bindEventoFilas(box)
 }
 function eventoFilaHTML(e){
-  const quien=e.ambito==='equipo'?'Equipo':(e.jugadorId?nombreDe(e.team,e.jugadorId):'—');
-  return `<li data-ev-row="${e.id}"><span class="rz-min">${e.minuto?e.minuto+'′':'–'}</span><span class="rz-tipo">${EVENTO_IC[e.tipo]||''} ${esc(EVENTO_NOM[e.tipo]||e.tipo)}</span><span class="rz-quien">${esc(quien)}</span><span class="rz-zona">${e.zona?ZONA_ETI[e.zona]:'sin zona'}</span><button type="button" class="rz-btn" data-ev-zone="${e.id}" title="Cambiar zona">✎</button><button type="button" class="rz-btn del" data-ev-del="${e.id}" title="Borrar evento">×</button></li>`
+  const rival=(e.team||'own')==='rival',otro=state.match.opponent||'Rival';
+  // El nombre del equipo entra tal cual (lo escapa el esc() de abajo, junto con
+  // todo lo demás que escribe el usuario).
+  const quien=e.ambito==='equipo'
+    ?(rival?otro:(state.club||'Equipo'))
+    :(e.jugadorId?nombreDe(e.team,e.jugadorId):(rival?otro:'—'));
+  return `<li data-ev-row="${e.id}" class="${rival?'rz-rival':''}"><span class="rz-min">${e.minuto?e.minuto+'′':'–'}</span><span class="rz-tipo">${EVENTO_IC[e.tipo]||''} ${esc(EVENTO_NOM[e.tipo]||e.tipo)}</span><span class="rz-quien">${esc(quien)}</span><span class="rz-zona">${e.zona?ZONA_ETI[e.zona]:'sin zona'}</span><button type="button" class="rz-btn" data-ev-zone="${e.id}" title="Cambiar zona">✎</button><button type="button" class="rz-btn del" data-ev-del="${e.id}" title="Borrar evento">×</button></li>`
 }
 function bindEventoFilas(box){
   box.querySelectorAll('[data-ev-del]').forEach(b=>b.onclick=()=>{
@@ -1214,22 +1560,78 @@ function bindEventoFilas(box){
 
 /* 4.2 Panel de equipo: totales del partido con el nombre completo de cada métrica
    y los dos ratios que el entrenador mira solos. */
+/* Los córners llevan el lado en el propio tipo (a favor / en contra), así que se
+   cuentan por tipo y da igual en qué posición estuviera el toggle
+   Nosotros/Rival al apuntarlos. El resto de acciones sí son de quien las hizo. */
+function contarTipoEquipo(lista,tipo){
+  return tipo.startsWith('corner_')
+    ?lista.filter(e=>e.tipo===tipo).length
+    :lista.filter(e=>e.tipo===tipo&&(e.team||'own')!=='rival').length
+}
 function renderTeamPanel(){
-  const ev=eventosDelPartido().filter(e=>e.team!=='rival');
+  const todos=eventosDelPartido(),ev=todos.filter(e=>(e.team||'own')!=='rival');
   const n=t=>ev.filter(e=>e.tipo===t).length;
+  const nc=t=>todos.filter(e=>e.tipo===t).length;
   const perdFranja=f=>ev.filter(e=>e.tipo==='perdida'&&zonaFranja(e.zona)===f).length;
-  const ataque=[['Llegadas al área',n('llegada_area')],['Tiros a puerta',n('tiro_puerta')],['Centros con remate',n('centro_remate')],['2x1 con centro al área',n('dos_por_uno')],['Ataques a la profundidad',n('profundidad')]];
-  const defensa=[['Pérdidas en inicio de juego',perdFranja('def')],['Pérdidas en zona media',perdFranja('med')],['Errores en despeje',n('error_despeje')],['Llegadas del rival',n('llegada_rival')],['Pases fallidos',n('pase_fallido')]];
+  const ataque=[['Llegadas por banda',n('llegada_banda')],['Entradas al área',n('llegada_area')],['Tiros',n('tiro_puerta')],['Centros con remate',n('centro_remate')],['2x1 con centro al área',n('dos_por_uno')],['Ataques a la profundidad',n('profundidad')]];
+  const defensa=[['Recuperaciones',n('recuperacion')],['Duelos ganados',n('duelo_ganado')],['Ocasiones concedidas',n('ocasion_conc')],['Pérdidas en inicio de juego',perdFranja('def')],['Pérdidas en zona media',perdFranja('med')],['Llegadas del rival',n('llegada_rival')]];
   const llegadas=n('llegada_area'),llegadasR=n('llegada_rival'),tiros=n('tiro_puerta');
+  const cf=nc('corner_favor'),cc=nc('corner_contra'),ct=cf+cc;
   const dominio=llegadasR?(llegadas/llegadasR).toFixed(2).replace('.',','):(llegadas?'—':'0');
   const eficacia=llegadas?(tiros/llegadas*10).toFixed(1).replace('.',','):'—';
   const col=(t,filas)=>`<div class="rt-col"><h4>${t}</h4><ul>${filas.map(([k,v])=>`<li><span>${k}</span><b>${v}</b></li>`).join('')}</ul></div>`;
+  // El porcentaje nunca va solo: con seis córners en un partido, "67%" no dice
+  // nada y "4 de 6" sí.
+  const pctC=v=>ct?` · ${v} de ${ct}, ${Math.round(v/ct*100)}%`:'';
   $('#repTeam').innerHTML=`<div class="rep-card-head"><span class="eyebrow">EQUIPO</span><h3>Totales del partido</h3></div>
     <div class="rt-cols">${col('Ataque',ataque)}${col('Defensa',defensa)}</div>
     <div class="rt-ratios">
-      <div><span>Dominio del partido</span><b>${llegadas} – ${llegadasR}</b><small>llegadas al área propias vs. del rival${llegadasR?` · ${dominio}×`:''}</small></div>
-      <div><span>Eficacia en finalización</span><b>${eficacia}</b><small>tiros a puerta por cada 10 llegadas al área</small></div>
+      <div><span>Córners</span><b>${cf} – ${cc}</b><small>a favor – en contra${ct?` · ${ct} en total${pctC(cf)} a favor`:' · ninguno registrado'}</small></div>
+      <div><span>Dominio del partido</span><b>${llegadas} – ${llegadasR}</b><small>entradas al área propias vs. llegadas del rival${llegadasR?` · ${dominio}×`:''}</small></div>
+      <div><span>Eficacia en finalización</span><b>${eficacia}</b><small>tiros por cada 10 entradas al área</small></div>
     </div>`
+}
+
+/* Comparativa 1ª / 2ª parte. Siempre con el número absoluto delante del
+   porcentaje: en un partido de 40 acciones un porcentaje suelto engaña. */
+const FILAS_PARTE=[
+  ['llegada_banda','Llegadas por banda'],['llegada_area','Entradas al área'],['tiro_puerta','Tiros'],['gol','Goles'],
+  ['recuperacion','Recuperaciones'],['duelo_ganado','Duelos ganados'],['perdida','Pérdidas'],['ocasion_conc','Ocasiones concedidas'],
+  ['corner_favor','Córners a favor'],['corner_contra','Córners en contra']
+];
+function renderHalvesPanel(){
+  const box=$('#repHalves');if(!box)return;
+  const ev=eventosDelPartido();
+  const cab='<div class="rep-card-head"><span class="eyebrow">RITMO DEL PARTIDO</span><h3>1ª parte y 2ª parte</h3></div>';
+  const partes=[1,2].concat([3,4,5].filter(h=>ev.some(e=>(e.parte||1)===h)));
+  const porParte=partes.map(h=>ev.filter(e=>(e.parte||1)===h));
+  const filas=FILAS_PARTE.map(([t,nom])=>{
+    const v=porParte.map(l=>contarTipoEquipo(l,t)),tot=v.reduce((a,b)=>a+b,0);
+    return {nom,v,tot}
+  }).filter(f=>f.tot>0);
+  if(!filas.length){box.innerHTML=cab+'<p class="rep-hint">Todavía no hay acciones registradas en el partido.</p>';return}
+  const th=partes.map(h=>`<th scope="col">${halfName(h)}</th>`).join('');
+  const cuerpo=filas.map(f=>`<tr><th scope="row">${f.nom}</th>${f.v.map(x=>
+      `<td class="${x?'':'cero'}">${x}<small>${f.tot?Math.round(x/f.tot*100)+'%':'—'}</small></td>`).join('')}<td class="rh-tot">${f.tot}</td></tr>`).join('');
+  box.innerHTML=cab
+    +'<p class="rep-hint">Reparto de cada acción entre las partes. El porcentaje es sobre el total de esa fila; al lado va siempre el número real.</p>'
+    +`<div class="rep-table-wrap"><table class="rep-table rep-halves"><thead><tr><th scope="col">Acción</th>${th}<th scope="col">Total</th></tr></thead><tbody>${cuerpo}</tbody></table></div>`
+}
+
+/* Línea temporal: todo el partido minuto a minuto, en un solo sitio y con los
+   mismos botones de corregir zona y borrar que el resto del informe. */
+function renderTimelinePanel(){
+  const box=$('#repTimeline');if(!box)return;
+  const cab='<div class="rep-card-head"><span class="eyebrow">MINUTO A MINUTO</span><h3>Cronología del partido</h3></div>';
+  const ev=eventosDelPartido().slice().sort((a,b)=>(a.parte||1)-(b.parte||1)||(a.minuto||0)-(b.minuto||0)||(a.ts||0)-(b.ts||0));
+  if(!ev.length){box.innerHTML=cab+'<p class="rep-hint">Sin acciones registradas.</p>';return}
+  const partes=[...new Set(ev.map(e=>e.parte||1))].sort((a,b)=>a-b);
+  const bloques=partes.map(h=>{
+    const lista=ev.filter(x=>(x.parte||1)===h);
+    return `<div class="r-block"><h4>${halfName(h)} · ${lista.length} ${lista.length===1?'acción':'acciones'}</h4><ul class="rz-list">${lista.map(eventoFilaHTML).join('')}</ul></div>`
+  }).join('');
+  box.innerHTML=cab+'<p class="rep-hint">El partido completo, los dos equipos. Toca ✎ para corregir la zona de una acción o × para borrarla.</p>'+bloques;
+  bindEventoFilas(box)
 }
 
 /* 4.3 Panel individual: nombres escritos, nunca iconos sueltos. En móvil hay
@@ -1281,6 +1683,14 @@ function frasesResumen(){
   const franjas=['def','med','ata'].map(f=>({f,v:base.filter(e=>e.tipo==='perdida'&&zonaFranja(e.zona)===f).length}));
   const totF=franjas.reduce((a,b)=>a+b.v,0);
   if(totF)lin.push('Reparto de pérdidas: '+franjas.map(x=>`${FRANJA_NOM[x.f]} ${x.v} (${Math.round(x.v/totF*100)}%)`).join(' · '));
+  // Córners y reparto por partes: se leen del partido entero, no del filtro,
+  // porque son el titular del vestuario y no dependen del cuadrante elegido.
+  const todos=eventosDelPartido();
+  const cf=todos.filter(e=>e.tipo==='corner_favor').length,cc=todos.filter(e=>e.tipo==='corner_contra').length;
+  if(cf||cc)lin.push(`Córners: ${cf} a favor y ${cc} en contra${cf+cc?` (${Math.round(cf/(cf+cc)*100)}% a favor de ${cf+cc})`:''}`);
+  const accion=h=>todos.filter(e=>(e.parte||1)===h&&(e.team||'own')!=='rival'&&!e.tipo.startsWith('corner_')).length;
+  const a1=accion(1),a2=accion(2),at=a1+a2;
+  if(at)lin.push(`Reparto por partes: 1ª parte ${a1} acciones (${Math.round(a1/at*100)}%) · 2ª parte ${a2} (${Math.round(a2/at*100)}%)`);
   const sinZona=base.filter(e=>!e.zona).length;
   lin.push(sinZona?`${sinZona} ${sinZona===1?'evento registrado sin zona asignada':'eventos registrados sin zona asignada'}`:'Todos los eventos tienen zona asignada');
   return lin
@@ -1305,7 +1715,7 @@ function renderClassicPanel(){
   const r=datosClasicos();
   const goles=r.goals.length?r.goals.map(x=>{
     const a=x.assistId?` <i>(asist. ${esc(nombreDe(x.team,x.assistId))})</i>`:'';
-    return `<li><span class="r-min">${x.min?x.min+'′':'–'}</span><span class="r-side ${x.team}"></span>⚽ <strong>${esc(nombreDe(x.team,x.scorerId))}</strong>${a}</li>`
+    return `<li><span class="r-min">${x.min?x.min+'′':'–'}</span><span class="r-side ${x.team}"></span>⚽ <strong>${esc(goleadorDe(x.team,x.scorerId))}</strong>${a}</li>`
   }).join(''):'<li class="tr-empty">Sin goles registrados.</li>';
   const mins=r.minutes.length?r.minutes.map(m=>`<li><strong>${esc(m.name)}</strong><span class="r-min-val">${Math.floor(m.secs/60)}′</span></li>`).join(''):'<li class="tr-empty">Sin minutos registrados.</li>';
   const cambios=r.subs.length?`<div class="r-block"><h4>Cambios</h4><ul class="r-list">${r.subs.map(s=>`<li><span class="r-min">${s.minuto?s.minuto+'′':'–'}</span>▶ <strong>${esc(nombreDe('own',s.inId))}</strong> ◀ ${esc(nombreDe('own',s.outId))}</li>`).join('')}</ul></div>`:'';
@@ -1465,6 +1875,7 @@ try{
     firebase.initializeApp(FIREBASE_CONFIG);
     db=firebase.firestore();
     db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    nubeActiva=true;
   }
 }catch(e){console.warn('Firebase no disponible:',e)}
 async function sha256hex(text){
@@ -1476,7 +1887,36 @@ async function sha256hex(text){
   let out='';for(let s=0;s<4;s++){let h=0x811c9dc5^s;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,0x01000193)}out+=(h>>>0).toString(16).padStart(8,'0')}
   return out
 }
-function setSync(ok,label){const dot=$('#syncDot'),lab=$('#syncLabel');if(!dot)return;dot.style.background=ok?'var(--green)':'var(--amber)';lab.textContent=label||(ok?'Sincronizado':'Sin conexión');$('.saved-status').classList.toggle('warn',!ok)}
+/* Estado de sincronización. Además del rótulo de la cabecera hay un semáforo en
+   la barra del modo en directo: verde sincronizado, ámbar pendiente de subir,
+   gris sin conexión. `nubePend` cuenta las escrituras de evento que aún no ha
+   confirmado el servidor; sin cobertura la promesa de Firestore se queda
+   colgada hasta que vuelve la red, que es justo lo que el ámbar quiere decir. */
+// `nubeActiva` en vez de mirar `db`: esa variable se declara mucho más abajo y
+// la primera pintada de la página ocurre antes, así que leerla desde aquí
+// reventaría al arrancar.
+let nubePend=0,syncOk=false,nubeActiva=false;
+function setSync(ok,label){
+  syncOk=ok;
+  const dot=$('#syncDot'),lab=$('#syncLabel');
+  if(dot){dot.style.background=ok?'var(--green)':'var(--amber)';lab.textContent=label||(ok?'Sincronizado':'Sin conexión');$('.saved-status').classList.toggle('warn',!ok)}
+  pintarSyncDirecto()
+}
+function estadoSync(){
+  if(!nubeActiva||!navigator.onLine)return 'off';
+  if(nubePend>0||!syncOk)return 'pend';
+  return 'ok'
+}
+const SYNC_TXT={ok:'Sincronizado',pend:'Pendiente',off:'Sin conexión'};
+function pintarSyncDirecto(){
+  const el=$('#lmSync');if(!el)return;
+  const est=estadoSync();
+  el.dataset.est=est;
+  $('#lmSyncTxt').textContent=SYNC_TXT[est]
+}
+function marcaNube(n){nubePend=Math.max(0,nubePend+n);pintarSyncDirecto()}
+addEventListener('online',()=>{pintarSyncDirecto();reintentarPendientes()});
+addEventListener('offline',pintarSyncDirecto);
 // Firestore rechaza documentos de más de 1 MB y las reglas cortan en 950.000.
 // Las fotos van incrustadas en el JSON, así que el aviso tiene que ser visible:
 // si no, los cambios dejarían de subir a la nube en silencio.
@@ -1512,11 +1952,24 @@ function scheduleCloudSave(){
    quitan de ese JSON para no tener dos copias que se contradigan. */
 function eventosRef(){return boardRef?boardRef.collection('eventos'):null}
 function limpioParaNube(o){const d={};Object.keys(o).forEach(k=>{if(o[k]!==undefined)d[k]=o[k]});return d}
+/* La interfaz nunca espera a la red: el evento ya está en memoria y en el
+   navegador antes de llamar aquí. Si la escritura falla (no si tarda: eso lo
+   resuelve solo Firestore al volver la cobertura), el id queda en `fallidos` y
+   se reintenta al recuperar conexión. */
+const fallidos=new Set();
 function cloudSaveEvent(ev){
   const r=eventosRef();if(!r)return;
-  r.doc(ev.id).set(limpioParaNube(ev)).catch(e=>console.warn('Evento sin sincronizar:',e))
+  marcaNube(1);
+  r.doc(ev.id).set(limpioParaNube(ev))
+    .then(()=>{fallidos.delete(ev.id);marcaNube(-1)})
+    .catch(e=>{fallidos.add(ev.id);marcaNube(-1);console.warn('Evento sin sincronizar:',e)})
 }
-function cloudDeleteEvent(id){const r=eventosRef();if(!r)return;r.doc(id).delete().catch(()=>{})}
+function cloudDeleteEvent(id){const r=eventosRef();if(!r)return;fallidos.delete(id);r.doc(id).delete().catch(()=>{})}
+function reintentarPendientes(){
+  if(!eventosRef()||!fallidos.size)return;
+  const ids=[...fallidos];
+  ids.forEach(id=>{const ev=state.live.events.find(e=>e.id===id);if(ev)cloudSaveEvent(ev);else fallidos.delete(id)})
+}
 // Restaurar una copia de seguridad sustituye también los eventos de la nube: si
 // no, los del partido anterior seguirían llegando desde la subcolección.
 function reemplazarEventosEnNube(){
@@ -1556,7 +2009,7 @@ function subscribeEvents(){
     }
     if(!cambio)return;
     L.events.sort((a,b)=>(a.ts||0)-(b.ts||0)||(a.minuto||0)-(b.minuto||0));
-    saveLocal();renderScoreboard();refrescarPaneles();
+    saveLocal();renderScoreboard();refrescarPaneles();lmPintarContador();
     $('#reportCount').textContent=eventosDelPartido().length
   },e=>console.warn('Eventos sin sincronizar:',e))
 }

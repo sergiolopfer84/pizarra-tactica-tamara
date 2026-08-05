@@ -173,7 +173,9 @@
             <section class="rep-card" id="repSummary"></section>
           </div>
         </div>
+        <section class="rep-card" id="repHalves"></section>
         <section class="rep-card" id="repPlayers"></section>
+        <section class="rep-card" id="repTimeline"></section>
         <section class="rep-card" id="repClassic"></section>
       </section>
     </main>
@@ -266,6 +268,51 @@
       <div class="modal-actions"><button type="button" class="btn secondary close-goal">Cancelar</button><button type="submit" class="btn primary">Guardar gol</button></div>
     </form>
   </dialog>
+  <!-- ===== Modo en directo: pantalla completa, dos pantallas y nada más =====
+       Se pinta desde app.js (renderLiveScreen). Aquí solo está el esqueleto fijo:
+       barra superior, cuerpo con las dos pantallas y barra inferior. -->
+  <div id="liveScreen" class="lm" hidden>
+    <header class="lm-top">
+      <div class="lm-clock">
+        <button type="button" class="lm-ico" id="lmPause" title="Pausa / reanudar">⏸</button>
+        <div class="lm-time"><b id="lmClock">00:00</b><span id="lmHalf">1ª parte</span></div>
+        <b class="lm-minute" id="lmMinute">1′</b>
+      </div>
+      <div class="lm-mid">
+        <div class="lm-count"><b id="lmCount">0</b><span>eventos</span></div>
+        <span class="lm-sync" id="lmSync" title="Sincronización"><i></i><em id="lmSyncTxt">Sincronizado</em></span>
+      </div>
+      <div class="lm-right">
+        <button type="button" class="lm-team" id="lmTeam" aria-pressed="false"><i></i><span id="lmTeamTxt">NOSOTROS</span></button>
+        <button type="button" class="lm-ico" id="lmHalfBtn" title="Fin de parte / iniciar la siguiente">⏹</button>
+        <button type="button" class="lm-ico end" id="lmFinish" title="Finalizar el partido">✔</button>
+        <button type="button" class="lm-ico" id="lmExit" title="Salir sin finalizar el partido">×</button>
+      </div>
+    </header>
+
+    <div class="lm-body">
+      <section class="lm-p1" id="lmP1">
+        <div class="lm-grid" id="lmGrid"></div>
+        <div class="lm-corners" id="lmCorners"></div>
+      </section>
+      <section class="lm-p2" id="lmP2" hidden>
+        <div class="lmz-head">
+          <div><b id="lmzTitle">Evento</b><small id="lmzHint">Toca la zona donde ha pasado</small></div>
+          <button type="button" class="lmz-flip" id="lmzFlip" title="Invertir el campo">⇅ <span id="lmzFlipTxt">Atacamos ↑</span></button>
+          <button type="button" class="lmz-close" id="lmzClose" aria-label="Cancelar">×</button>
+        </div>
+        <div class="lmz-field" id="lmzField"></div>
+      </section>
+      <!-- Fuera de las dos pantallas: la confirmación de un evento con zona se
+           pinta mientras aún se ve el campo y sigue visible al volver. -->
+      <div class="lm-flash" id="lmFlash" hidden></div>
+    </div>
+
+    <footer class="lm-bottom">
+      <button type="button" class="lm-undo" id="lmUndo">↶ <span>Deshacer última acción</span></button>
+    </footer>
+  </div>
+
   <div id="playerMenu" class="ctx-menu hidden" role="menu"></div>
   <div id="teamMenu" class="team-menu hidden" role="dialog" aria-label="Eventos de equipo"></div>
   <button id="teamFab" class="team-fab hidden" type="button" title="Registrar evento de equipo">⚑<span> Equipo</span></button>

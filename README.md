@@ -38,7 +38,24 @@ La rejilla es **siempre relativa al equipo propio**: `def_*` junto a la porterí
 
 Los ids internos no se cambian nunca; las etiquetas de tres letras están en la constante `ZONA_ETI` de `app.js` por si otro cuerpo técnico prefiere otras.
 
-### Registrar: tres toques
+### Modo en directo: dos toques por acción
+
+**Iniciar partido** abre una pantalla completa dedicada, pensada para registrar sin apartar la vista del campo. No pide nada: el rival, la competición, la fecha y el lugar salen de la tarjeta *Próximo partido*. Si el navegador lo permite, mantiene la pantalla encendida (Wake Lock).
+
+- **Pantalla 1**: rejilla de ocho botones, 2 columnas × 4 filas. Ataque en verde (llegada por banda, entrada al área, tiro, gol) y defensa en rojo (recuperación, pérdida, duelo ganado, ocasión concedida). El **gol** va destacado en ámbar.
+- **Pantalla 2**: al pulsar cualquiera de los ocho aparece el campo dibujado en SVG con las nueve zonas. Un toque en el cuadrante y **el evento está guardado**: vuelta automática a la pantalla 1, destello del cuadrante y vibración de 30 ms. Sin botón de confirmar. Se sale con la X o sola a los 8 segundos sin tocar nada, y en ese caso no registra nada. Los toques a menos de 300 ms se ignoran, para que un rebote del dedo no cuente dos veces.
+- **Córners a favor y en contra**: fila aparte, separada por una línea, y **una sola pulsación**. No pasan por la pantalla de zonas: se guardan con su minuto y ya.
+- **Gol** genera además un evento de **tiro** en la misma zona y el mismo minuto, para que la distribución de tiros no pierda los remates que acaban dentro. El gol entra en el marcador sin goleador; se le pone nombre después, tocando su fila en el marcador de la pizarra.
+- **Orientación**: se ataca siempre hacia arriba. Al empezar la 2ª parte el campo se invierte solo, y hay un botón para invertirlo a mano si quien registra se cambia de banda. El dato guardado no cambia nunca: `ata_*` es siempre el campo rival.
+- **Equipo**: no se pregunta dentro del flujo. El toggle **Nosotros / Rival** de la barra superior manda hasta que se cambie.
+- **Barra superior**: reloj y minuto, contador de eventos, semáforo de sincronización (verde sincronizado, ámbar pendiente de subir, gris sin conexión) y el toggle de equipo. El minuto sale del reloj, nunca se teclea.
+- **Barra inferior**: deshacer, con las **cinco últimas** acciones. Deshacer un gol se lleva también su tiro y su entrada en el marcador.
+
+La interfaz **nunca espera a la red**: la confirmación se pinta al instante y la subida va por detrás, con reintento automático al recuperar cobertura.
+
+### Registrar desde la pizarra: tres toques
+
+Sigue disponible para lo que necesita jugador o asistencia, y para corregir después.
 
 - **Acciones de jugador**: pulsación larga sobre el jugador → menú con dos pestañas (Ofensivo / Defensivo) → el mismo popup se transforma en el selector de zona → un toque en el cuadrante. Los cuatro eventos originales (regate exitoso y fallido, recuperación y pérdida) encabezan cada pestaña.
 - **Acciones de equipo** (llegada al área, llegada del rival, 2x1 con centro al área): botón ⚑ flotante, siempre visible durante el partido, sin pasar por ningún jugador. Cada una lleva su contador; una pulsación larga sobre el contador resta uno.
@@ -54,6 +71,10 @@ Las **pérdidas en inicio de juego, en zona media y en campo rival** no tienen b
 Sección propia en el menú lateral. Muestra el campo en SVG con el mapa de calor por zonas (número absoluto y porcentaje en cada cuadrante), un selector de métrica agrupado en Ataque / Defensa / Combinadas —incluido el **balance defensivo** (recuperaciones − pérdidas) y el **% de acierto en regate**—, filtros por jugador, parte y tramo de minutos, la tabla de equipo con los ratios de dominio y eficacia, la tabla individual y el resumen redactado.
 
 Al tocar un cuadrante se listan sus eventos, con opción de corregirlos. **Campo PNG** y **Resumen PNG** generan una imagen para compartir en el grupo del cuerpo técnico (en el móvil se abre el menú de compartir; en el PC se descarga).
+
+El informe es **por partido** e incluye todo lo registrado en directo: mapa de calor por zonas, pérdidas y recuperaciones por zona, origen de los ataques (llegadas por banda), zonas de entrada al área, distribución de tiros, córners a favor y en contra, **comparativa entre 1ª y 2ª parte** y la **cronología minuto a minuto** de las dos escuadras. Cualquier porcentaje va siempre acompañado del número absoluto ("5 pérdidas, 38%"): con el volumen de eventos de un partido, un porcentaje suelto engaña.
+
+Cada evento guarda tipo, minuto, parte, marca de tiempo, equipo, zona (con su `fila` y `carril` de 1 a 3) e identificador del partido, y sale entero en el JSON de la copia de seguridad.
 
 ### Dos dispositivos a la vez
 
