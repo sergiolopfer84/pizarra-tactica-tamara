@@ -1,5 +1,20 @@
 {
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "**/.*",
+      "**/node_modules/**",
+      "backups/**",
+      "claves.txt",
+      "*.ps1",
+      "*.zip",
+      "firestore.rules",
+      "README.md"
+    ]
   }
 }

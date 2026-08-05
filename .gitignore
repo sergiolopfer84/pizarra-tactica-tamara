@@ -7,3 +7,5 @@ firebase-debug.log
 backups/
 # Claves de acceso en claro que usa copia-pizarras.ps1
 claves.txt
+
+.firebase/
