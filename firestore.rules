@@ -25,5 +25,27 @@ service cloud.firestore {
                             && request.resource.data.size() < 30
                             && request.resource.data.tipo is string;
     }
+    // Histórico de partidos jugados. Cuelga de la pizarra, no de la raíz: en la
+    // raíz una colección "partidos" sería común a TODAS las claves de acceso y
+    // cualquiera vería el histórico de los demás. Aquí sigue haciendo falta
+    // conocer el hash de la clave, igual que para el resto.
+    // La cabecera es lo único que lee el listado (fecha, equipos y resultado);
+    // el informe entero vive en el subdocumento de abajo y solo se descarga al
+    // abrir un partido concreto.
+    match /pizarras/{boardId}/partidos/{partidoId} {
+      allow read: if true;
+      allow delete: if true;
+      allow create, update: if request.resource != null
+                            && request.resource.data.size() < 20
+                            && request.resource.data.fecha is string;
+
+      match /detalle/{docId} {
+        allow read: if true;
+        allow delete: if true;
+        allow create, update: if request.resource != null
+                              && request.resource.data.datos is string
+                              && request.resource.data.datos.size() < 900000;
+      }
+    }
   }
 }

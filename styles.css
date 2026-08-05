@@ -540,6 +540,39 @@ body.live-on .toast{bottom:88px}
 .goal-zone[hidden]{display:none}
 .goal-zone .zone-pick{width:100%;max-width:none}
 
+/* ===== Partidos jugados ===== */
+.mp-lista{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.mp-fila{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:14px;
+         background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px;cursor:pointer}
+.mp-fila:hover{border-color:var(--purple);box-shadow:0 4px 14px #31098c14}
+.mp-fecha{font:700 12px 'DM Sans';color:var(--muted);white-space:nowrap}
+.mp-equipos{min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mp-equipos b{font:700 14px 'DM Sans'}
+.mp-equipos i{font-style:normal;font-size:10px;color:var(--muted);font-weight:700}
+.mp-equipos small{flex-basis:100%;font-size:10.5px;color:var(--muted)}
+.mp-res{font:800 19px Manrope;font-variant-numeric:tabular-nums;padding:4px 11px;border-radius:9px;white-space:nowrap}
+.mp-res.gana{background:#e7f7ef;color:#0c6742}
+.mp-res.pierde{background:#fdecec;color:#a61f2b}
+.mp-res.empata{background:#f2f0f7;color:#4a4557}
+.mp-acciones{display:flex;gap:5px}
+.mp-btn{width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;color:var(--muted);font-size:14px}
+.mp-btn:hover{border-color:var(--purple);color:var(--purple)}
+.mp-btn.del:hover{border-color:var(--red);color:var(--red)}
+/* Informe archivado */
+.md-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.md-sello{font:700 10px Manrope;letter-spacing:.1em;color:var(--muted);background:#f2f0f7;padding:6px 11px;border-radius:99px}
+.md-cabecera{text-align:center}
+.md-marcador{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin:8px 0 4px}
+.md-marcador b{font:700 16px 'DM Sans'}
+.md-marcador em{font:800 30px Manrope;font-style:normal;font-variant-numeric:tabular-nums;color:var(--purple)}
+.md-cabecera small{color:var(--muted);font-size:11.5px}
+#matchDetail>section,#matchDetail>.rep-card{margin-bottom:14px}
+@media (max-width:640px){
+  .mp-fila{grid-template-columns:1fr auto;grid-template-areas:"fecha res" "equipos res" "acc acc";gap:6px 12px}
+  .mp-fecha{grid-area:fecha}.mp-equipos{grid-area:equipos}.mp-res{grid-area:res;align-self:center}
+  .mp-acciones{grid-area:acc;justify-content:flex-end;margin-top:4px}
+}
+
 /* ===== Vista 3D del campo =====
    Mismo ancho que .pitch, pero MÁS BAJA a propósito. El campo visto en
    perspectiva desde detrás de la portería es ancho y poco alto: en una caja

@@ -148,8 +148,8 @@ function persist(show=false){
   if(show)showToast('Cambios guardados')
 }
 function avatarStyle(p){return p.photo?`style="background-image:url('${p.photo}')"`:''}
-const VIEW_TITLES={board:'Pizarra táctica',squad:'Gestión de plantilla',training:'Entrenamientos',rival:'Análisis del rival',report:'Informe del partido'};
-const VIEW_EYEBROWS={board:'PARTIDO · PLANIFICACIÓN',squad:'EQUIPO · TEMPORADA 2026/27',training:'SESIONES · PREPARACIÓN',rival:'SCOUTING · PRÓXIMO PARTIDO',report:'ESTADÍSTICAS · ZONAS DEL CAMPO'};
+const VIEW_TITLES={board:'Pizarra táctica',squad:'Gestión de plantilla',training:'Entrenamientos',rival:'Análisis del rival',report:'Informe del partido',matches:'Partidos jugados'};
+const VIEW_EYEBROWS={board:'PARTIDO · PLANIFICACIÓN',squad:'EQUIPO · TEMPORADA 2026/27',training:'SESIONES · PREPARACIÓN',rival:'SCOUTING · PRÓXIMO PARTIDO',report:'ESTADÍSTICAS · ZONAS DEL CAMPO',matches:'HISTÓRICO · TEMPORADA'};
 function switchView(v){$$('.view,.nav-item').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$(`.nav-item[data-view="${v}"]`).classList.add('active');$('#pageTitle').textContent=VIEW_TITLES[v]||'';$('#sectionEyebrow').textContent=VIEW_EYEBROWS[v]||'';$('.sidebar').classList.remove('open');renderAll()}
 $$('.nav-item').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$$('[data-go-squad]').forEach(b=>b.onclick=()=>switchView('squad'));$$('[data-go-rival]').forEach(b=>b.onclick=()=>switchView('rival'));$('.mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 function renderTabs(){$('#tacticTabs').innerHTML=state.tactics.map((t,i)=>`<button class="tactic-tab ${t.id===state.activeTactic?'active':''}" data-id="${t.id}">${esc(t.name)}${state.tactics.length>1?`<span class="remove" data-remove="${t.id}">×</span>`:''}</button>`).join('');$$('.tactic-tab').forEach(b=>b.onclick=e=>{if(e.target.dataset.remove){e.stopPropagation();state.tactics=state.tactics.filter(t=>t.id!==e.target.dataset.remove);if(state.activeTactic===e.target.dataset.remove)state.activeTactic=state.tactics[0].id}else state.activeTactic=b.dataset.id;persist();renderAll()})}
@@ -904,7 +904,9 @@ function liveStart(){
 function livePause(){state.live.running=false;liveStopTicking();persist();renderLive()}
 function liveResume(){state.live.running=true;persist();renderLive();liveStartTicking()}
 function liveEndHalf(){const L=state.live;L.running=false;liveStopTicking();const fin=halfName(L.half);L.half++;L.elapsed=0;liveSaveCount=0;lmAutoOrientacion();persist();renderBoard();showToast('Fin de la '+fin)}
-function liveFinish(){const L=state.live;L.running=false;L.finished=true;liveStopTicking();cerrarDirecto();persist();renderBoard();openReport()}
+// Se archiva ANTES de nada: a partir de aquí el técnico puede pulsar "Iniciar
+// partido", y eso vacía los minutos y borra los eventos de la nube.
+function liveFinish(){const L=state.live;L.running=false;L.finished=true;liveStopTicking();cerrarDirecto();if(window.Partidos)Partidos.archivar();persist();renderBoard();openReport()}
 function liveReset(){
   if(!confirm('¿Reiniciar el partido? Se ponen a cero el marcador, el cronómetro, los minutos y los eventos. No se puede deshacer.'))return;
   limpiarEventos();

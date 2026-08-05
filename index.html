@@ -47,6 +47,7 @@
         <button class="nav-item" data-view="training"><span class="icon">⚑</span><span>Entrenamientos</span><b id="trainingCount">0</b></button>
         <button class="nav-item" data-view="rival"><span class="icon">♟</span><span>Rival</span><b id="rivalCount">0</b></button>
         <button class="nav-item" data-view="report"><span class="icon">▤</span><span>Informe</span><b id="reportCount">0</b></button>
+        <button class="nav-item" data-view="matches"><span class="icon">▣</span><span>Partidos jugados</span><b id="matchesCount">0</b></button>
       </nav>
       <div class="sidebar-foot">
         <div class="season"><span>Temporada</span><strong>2026 / 27</strong></div>
@@ -193,6 +194,13 @@
         <section class="rep-card" id="repPlayers"></section>
         <section class="rep-card" id="repTimeline"></section>
         <section class="rep-card" id="repClassic"></section>
+      </section>
+
+      <!-- Histórico. Lo pinta partidos.js: el listado en #matchesList y el
+           informe de un partido concreto en #matchDetail, nunca los dos. -->
+      <section id="matchesView" class="view">
+        <div id="matchesList"></div>
+        <div id="matchDetail" hidden></div>
       </section>
     </main>
   </div>
@@ -342,6 +350,21 @@
     </div>
   </div>
 
+  <dialog id="matchEditDialog">
+    <form method="dialog" id="matchEditForm">
+      <div class="modal-head"><div><span class="eyebrow">PARTIDO GUARDADO</span><h2>Corregir la ficha</h2></div><button type="button" class="close-match-edit">×</button></div>
+      <div class="form-grid">
+        <label class="full">Fecha<input id="meFecha" type="date" /></label>
+        <label>Equipo local<input id="meLocal" /></label>
+        <label>Goles<input id="meGolesLocal" type="number" min="0" max="99" /></label>
+        <label>Equipo visitante<input id="meVisitante" /></label>
+        <label>Goles<input id="meGolesVisitante" type="number" min="0" max="99" /></label>
+        <label class="full">Competición<input id="meCompeticion" /></label>
+      </div>
+      <p class="rep-hint" style="padding:0 24px">Solo se corrige la ficha. El informe guardado no se toca: es el registro de lo que se apuntó durante el partido.</p>
+      <div class="modal-actions"><button type="button" class="btn secondary close-match-edit">Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>
+  </dialog>
   <div id="playerMenu" class="ctx-menu hidden" role="menu"></div>
   <div id="teamMenu" class="team-menu hidden" role="dialog" aria-label="Eventos de equipo"></div>
   <button id="teamFab" class="team-fab hidden" type="button" title="Registrar evento de equipo">⚑<span> Equipo</span></button>
@@ -350,7 +373,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="app.js"></script>
-  <!-- Después de app.js: lee tactic() y state, que son suyas. -->
+  <!-- Después de app.js: leen state, boardRef y sus ayudantes. -->
   <script src="vista3d.js"></script>
+  <script src="partidos.js"></script>
 </body>
 </html>
