@@ -540,6 +540,28 @@ body.live-on .toast{bottom:88px}
 .goal-zone[hidden]{display:none}
 .goal-zone .zone-pick{width:100%;max-width:none}
 
+/* ===== Vista 3D del campo =====
+   Mismo ancho que .pitch, pero MÁS BAJA a propósito. El campo visto en
+   perspectiva desde detrás de la portería es ancho y poco alto: en una caja
+   10:14 el dibujo se queda en la franja central y sobra un tercio de gris
+   arriba y abajo. Con 10:11 la cámara puede acercarse y el campo llena. La
+   página se acorta al pasar a 3D, pero es la consecuencia de pulsar un botón,
+   no un salto inesperado. */
+.pitch-3d{width:min(100%,610px);aspect-ratio:10/11;position:relative;overflow:hidden;
+          background:#e9e6ed;border-radius:2px;touch-action:none;box-shadow:0 10px 25px #1a402c33}
+.pitch-3d[hidden]{display:none}
+.pitch-3d canvas{display:block;width:100%;height:100%}
+.pitch-wrap.en-3d .pitch{display:none}
+.p3d-aviso{position:absolute;inset:0;margin:0;display:flex;flex-direction:column;align-items:center;
+           justify-content:center;gap:7px;text-align:center;padding:24px;color:var(--muted);font-size:13px}
+.p3d-aviso b{font:800 15px Manrope;color:var(--ink)}
+.p3d-aviso small{max-width:38ch;line-height:1.5}
+/* El botón no es una herramienta de dibujo: cuando está activo se enciende en
+   morado, no en el ámbar de las marcas, para que se lea como "modo de vista". */
+.tool.tool-3d .t-ico{font:800 11px Manrope;letter-spacing:.04em}
+.tool.tool-3d.active{background:var(--purple);border-color:var(--purple);color:#fff}
+@media print{.pitch-3d{display:none!important}.pitch-wrap.en-3d .pitch{display:block}}
+
 /* ===================================================================
    MODO EN DIRECTO · pantalla completa
    Fondo oscuro y texto blanco: se lee a pleno sol y no deslumbra de

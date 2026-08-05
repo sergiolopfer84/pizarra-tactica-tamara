@@ -9,6 +9,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
+  <!-- Solo declara de dónde sale three.js. No lo descarga: eso pasa la primera
+       vez que se pulsa "Ver en 3D" (import() dinámico en vista3d.js), para no
+       cargar ~700 KB a quien entra a mirar la convocatoria desde el móvil. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
   <div id="authOverlay" class="auth-overlay">
@@ -109,6 +120,8 @@
               <button class="tool" type="button" id="undoBoard" title="Deshacer la última acción sobre el campo"><i class="t-ico">↶</i><span class="t-name">Deshacer</span></button>
               <button class="tool danger" type="button" data-tool="remove" title="Goma: borra el elemento que toques"><i class="t-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 20.5H21"/><path d="M15.6 3.4 3.4 15.6a2 2 0 0 0 0 2.8l2.2 2.2a2 2 0 0 0 2.8 0L20.6 8.4a2 2 0 0 0 0-2.8l-2.2-2.2a2 2 0 0 0-2.8 0Z"/><path d="m9 9 6 6"/></svg></i><span class="t-name">Borrar</span></button>
               <button class="tool danger" type="button" id="clearAll" title="Vaciar el campo por completo"><i class="t-ico">⊗</i><span class="t-name">Limpiar</span></button>
+              <span class="tool-divider"></span>
+              <button class="tool tool-3d" type="button" id="ver3d" aria-pressed="false" title="Ver el campo en 3D · las posiciones se editan en 2D"><i class="t-ico">3D</i><span class="t-name">Ver en 3D</span></button>
             </div>
             <div class="pitch-wrap">
               <div class="pitch" id="pitch">
@@ -120,6 +133,9 @@
                 <div id="pitchPlayers"></div>
                 <div class="pitch-hint" id="pitchHint">Selecciona jugadores del banquillo para colocarlos</div>
               </div>
+              <!-- Ocupa el mismo hueco que .pitch para que al alternar no salte
+                   la página. Lo rellena vista3d.js; vacío no estorba. -->
+              <div class="pitch-3d" id="pitch3d" hidden></div>
             </div>
           </section>
 
@@ -334,5 +350,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="app.js"></script>
+  <!-- Después de app.js: lee tactic() y state, que son suyas. -->
+  <script src="vista3d.js"></script>
 </body>
 </html>
