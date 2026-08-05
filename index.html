@@ -287,6 +287,8 @@
         <button type="button" class="lm-ico" id="lmHalfBtn" title="Fin de parte / iniciar la siguiente">⏹</button>
         <button type="button" class="lm-ico end" id="lmFinish" title="Finalizar el partido">✔</button>
         <button type="button" class="lm-ico" id="lmExit" title="Salir sin finalizar el partido">×</button>
+        <!-- En móvil los tres de arriba no caben en la barra: se agrupan aquí. -->
+        <button type="button" class="lm-ico lm-more" id="lmMore" aria-haspopup="dialog" aria-expanded="false" title="Controles del partido">⋯</button>
       </div>
     </header>
 
@@ -298,7 +300,7 @@
       <section class="lm-p2" id="lmP2" hidden>
         <div class="lmz-head">
           <div><b id="lmzTitle">Evento</b><small id="lmzHint">Toca la zona donde ha pasado</small></div>
-          <button type="button" class="lmz-flip" id="lmzFlip" title="Invertir el campo">⇅ <span id="lmzFlipTxt">Atacamos ↑</span></button>
+          <button type="button" class="lmz-flip" id="lmzFlip" title="Invertir el campo">↕ <span id="lmzFlipTxt">Atacamos ↑</span></button>
           <button type="button" class="lmz-close" id="lmzClose" aria-label="Cancelar">×</button>
         </div>
         <div class="lmz-field" id="lmzField"></div>
@@ -311,6 +313,17 @@
     <footer class="lm-bottom">
       <button type="button" class="lm-undo" id="lmUndo">↶ <span>Deshacer última acción</span></button>
     </footer>
+
+    <!-- Controles del reloj en móvil: filas grandes en vez de iconos de 40 px,
+         que es donde más caro sale equivocarse. -->
+    <div class="lm-sheet" id="lmSheet" hidden>
+      <div class="lm-sheet-card" role="dialog" aria-label="Controles del partido">
+        <button type="button" data-act="half"><i>⏹</i><span id="lmSheetHalf">Fin de parte</span></button>
+        <button type="button" class="end" data-act="finish"><i>✔</i><span>Finalizar partido</span></button>
+        <button type="button" data-act="exit"><i>⤺</i><span>Salir sin finalizar</span></button>
+        <button type="button" class="lm-sheet-cancel" data-act="close">Volver al registro</button>
+      </div>
+    </div>
   </div>
 
   <div id="playerMenu" class="ctx-menu hidden" role="menu"></div>

@@ -1108,7 +1108,7 @@ const DIRECTO_NOM={llegada_banda:'Llegada por banda',llegada_area:'Entrada al á
    Aquí se cambian por dos signos monocromos que heredan el blanco del texto y
    se leen como pareja: ganamos el balón / lo perdemos. En el informe siguen
    saliendo los del catálogo, que es donde el color sí ayuda. */
-const DIRECTO_IC={recuperacion:'⊕',perdida:'⊖'};
+const DIRECTO_IC={recuperacion:'⊕',perdida:'⊖',ocasion_conc:'△'};
 const DIRECTO_ZONA_MS=8000,   // sin tocar nada, la pantalla de zonas se cierra sola
       DIRECTO_REBOTE=300;     // dos toques más juntos que esto son el mismo dedo
 
@@ -1138,13 +1138,13 @@ function abrirDirecto(){
   lmAutoOrientacion();
   $('#liveScreen').hidden=false;
   document.body.classList.add('lm-on');
-  $('#lmP2').hidden=true;$('#lmP1').hidden=false;
+  $('#lmP2').hidden=true;$('#lmP1').hidden=false;lmCerrarHoja();
   renderLiveScreen();lmPedirWakeLock();
   if(L.running)liveStartTicking()
 }
 function cerrarDirecto(){
   if(!lmAbierto)return;
-  lmAbierto=false;lmCancelarZona();
+  lmAbierto=false;lmCancelarZona();lmCerrarHoja();
   $('#liveScreen').hidden=true;
   document.body.classList.remove('lm-on');
   lmSoltarWakeLock()
@@ -1160,7 +1160,10 @@ function renderLiveScreen(){
   p.textContent=L.running?'⏸':'▶';
   p.classList.toggle('go',!L.running);
   p.title=L.running?'Pausa':(L.elapsed===0?'Iniciar '+halfName(L.half):'Reanudar');
-  $('#lmHalfBtn').disabled=L.elapsed===0&&!L.running
+  // Una parte que aún no ha empezado no se puede dar por terminada.
+  const sinEmpezar=L.elapsed===0&&!L.running;
+  $('#lmHalfBtn').disabled=sinEmpezar;
+  const fila=$('#lmSheet [data-act="half"]');if(fila)fila.disabled=sinEmpezar
 }
 function lmPintarReloj(){
   if(!lmAbierto)return;
@@ -1206,19 +1209,24 @@ function lmPintarRejilla(){
    CSS. Así el texto no se deforma y cada cuadrante mantiene su altura mínima. */
 function lmCampoSVG(){
   const W=300,H=420,cw=100,ch=140,lin='rgba(255,255,255,.55)',tenue='rgba(255,255,255,.26)';
-  const yRival=lmInvertido?H-9:0,yProp=lmInvertido?0:H-9;
+  const yRival=lmInvertido?H-13:0,yProp=lmInvertido?0:H-9;
   let s=`<svg class="lmz-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`;
   s+=`<rect x="3" y="3" width="${W-6}" height="${H-6}" fill="none" stroke="${lin}" stroke-width="2"/>`;
   s+=`<line x1="3" y1="${H/2}" x2="${W-3}" y2="${H/2}" stroke="${lin}" stroke-width="2"/>`;
-  s+=`<circle cx="${W/2}" cy="${H/2}" r="46" fill="none" stroke="${lin}" stroke-width="2"/>`;
+  // El círculo central NO va aquí: el SVG se estira al hueco y saldría como una
+  // elipse. Se dibuja en CSS (.lmz-circle), que sí puede mantenerse redondo.
   s+=`<rect x="70" y="3" width="160" height="60" fill="none" stroke="${lin}" stroke-width="2"/>`;
   s+=`<rect x="70" y="${H-63}" width="160" height="60" fill="none" stroke="${lin}" stroke-width="2"/>`;
   [1,2].forEach(i=>{
     s+=`<line x1="${i*cw}" y1="3" x2="${i*cw}" y2="${H-3}" stroke="${tenue}" stroke-width="1.5" stroke-dasharray="8 8"/>`;
     s+=`<line x1="3" y1="${i*ch}" x2="${W-3}" y2="${i*ch}" stroke="${tenue}" stroke-width="1.5" stroke-dasharray="8 8"/>`
   });
-  s+=`<rect x="118" y="${yRival}" width="64" height="9" fill="#ffd166"/>`;
-  s+=`<rect x="118" y="${yProp}" width="64" height="9" fill="rgba(255,255,255,.5)"/>`;
+  // La portería a la que atacamos, en ámbar y más gruesa; la nuestra, apagada.
+  // Es la única marca de orientación dentro del campo: los rótulos de texto se
+  // quitaron porque se pisaban con el código de la zona de arriba, y la
+  // dirección ya va escrita con todas las letras en el botón de invertir.
+  s+=`<rect x="112" y="${yRival}" width="76" height="13" rx="2" fill="#ffd166"/>`;
+  s+=`<rect x="118" y="${yProp}" width="64" height="9" fill="rgba(255,255,255,.42)"/>`;
   return s+'</svg>'
 }
 function lmCampoHTML(){
@@ -1226,8 +1234,7 @@ function lmCampoHTML(){
     const z=lmZonaDe(i);
     return `<button type="button" class="lmz-cell" data-zona="${z}"><b>${ZONA_ETI[z]}</b></button>`
   }).join('');
-  const arriba=lmInvertido?'NUESTRA PORTERÍA':'PORTERÍA RIVAL',abajo=lmInvertido?'PORTERÍA RIVAL':'NUESTRA PORTERÍA';
-  return `<div class="lmz-pitch">${lmCampoSVG()}<span class="lmz-tag top">${arriba}</span><div class="lmz-grid">${celdas}</div><span class="lmz-tag bot">${abajo}</span></div>`
+  return `<div class="lmz-pitch">${lmCampoSVG()}<span class="lmz-circle"></span><div class="lmz-grid">${celdas}</div></div>`
 }
 
 function lmPulsarEvento(t){
@@ -1320,6 +1327,23 @@ $('#lmzField').addEventListener('click',e=>{
   const b=e.target.closest('[data-zona]');
   if(b)lmTocarZona(b.dataset.zona,b)
 });
+/* Hoja de controles: en móvil los tres botones del reloj no caben en la barra.
+   Se abre y se cierra desde aquí, y cada acción es la misma que la del icono
+   equivalente del escritorio, para no tener dos caminos que puedan divergir. */
+function lmAbrirHoja(){
+  $('#lmSheetHalf').textContent='Fin de la '+halfName(state.live.half);
+  $('#lmSheet').hidden=false;$('#lmMore').setAttribute('aria-expanded','true')
+}
+function lmCerrarHoja(){$('#lmSheet').hidden=true;$('#lmMore').setAttribute('aria-expanded','false')}
+$('#lmMore').onclick=()=>$('#lmSheet').hidden?lmAbrirHoja():lmCerrarHoja();
+$('#lmSheet').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b){if(e.target===$('#lmSheet'))lmCerrarHoja();return}   // tocar fuera cierra
+  lmCerrarHoja();
+  if(b.dataset.act==='half')$('#lmHalfBtn').click();
+  else if(b.dataset.act==='finish')$('#lmFinish').click();
+  else if(b.dataset.act==='exit')$('#lmExit').click()
+});
 $('#lmzClose').onclick=lmCancelarZona;
 $('#lmzFlip').onclick=lmInvertir;
 $('#lmUndo').onclick=lmDeshacerUltima;
@@ -1334,7 +1358,9 @@ $('#lmExit').onclick=()=>{cerrarDirecto();renderBoard();showToast('El partido si
 addEventListener('keydown',e=>{
   if(!lmAbierto||e.key!=='Escape')return;
   e.preventDefault();
-  lmEvPend?lmCancelarZona():cerrarDirecto()
+  if(!$('#lmSheet').hidden)lmCerrarHoja();
+  else if(lmEvPend)lmCancelarZona();
+  else cerrarDirecto()
 });
 
 /* ===== Informe del partido: campo, mapa de calor y tablas =====
