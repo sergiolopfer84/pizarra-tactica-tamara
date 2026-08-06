@@ -9,18 +9,38 @@ service cloud.firestore {
       // Con solo get hay que conocer el hash exacto, que es lo que la clave protege.
       allow get: if true;
       allow list: if false;
+      // request.resource es null en un delete, así que esta condición también
+      // impide borrar la pizarra entera: la app nunca lo hace y nadie debería.
       allow write: if request.resource != null
                    && request.resource.data.keys().hasOnly(['data', 'writer', 'updatedAt'])
                    && request.resource.data.data is string
+                   // Suelo: la app guarda con set() SIN merge, así que una
+                   // escritura de un carácter reemplaza la pizarra entera y la
+                   // deja vacía. normalizeState() siembra siempre rivales,
+                   // entrenamientos, tácticas y live, de modo que el estado más
+                   // pequeño que puede generar la app ronda los 2.900
+                   // caracteres: 500 corta el borrado por sobrescritura sin
+                   // acercarse a nada real.
+                   && request.resource.data.data.size() > 500
                    && request.resource.data.data.size() < 950000;
     }
     // Eventos del partido: un documento por evento, dentro de la pizarra. Así el
     // documento grande no crece sin control y dos dispositivos con la misma clave
     // pueden registrar a la vez sin pisarse. Para llegar hasta aquí sigue habiendo
     // que conocer el hash de la clave, igual que para la pizarra.
+    //
+    // Aquí NO se comprueba que la pizarra exista. Sería inútil y rompería cosas:
+    // quien puede escribir un evento ya conoce el hash, y crear el documento
+    // padre le costaría un set(). A cambio, exists() se factura como lectura en
+    // cada evento y llegaría 400 veces en el lote de limpiarEventos(), que tiene
+    // un techo de 20 accesos por petición. Además reemplazarEventosEnNube()
+    // sube los eventos ~600 ms ANTES que el documento de la pizarra, así que
+    // importar una copia de seguridad sobre una pizarra nueva fallaría entera.
     match /pizarras/{boardId}/eventos/{eventoId} {
       allow read: if true;
       allow delete: if true;
+      // El tope de 30 campos deja sitio a los eventos heredados, que arrastran
+      // sin limpiar los campos viejos type, playerId, min y half.
       allow create, update: if request.resource != null
                             && request.resource.data.size() < 30
                             && request.resource.data.tipo is string;
@@ -35,14 +55,36 @@ service cloud.firestore {
     match /pizarras/{boardId}/partidos/{partidoId} {
       allow read: if true;
       allow delete: if true;
+      // Los topes de texto son deliberadamente holgados (300 frente a los ~20
+      // caracteres de un nombre real). La app no impone ningún maxlength en sus
+      // inputs, y si estas reglas rechazasen el archivado se PERDERÍA el
+      // partido: "Iniciar partido" borra los eventos de todas formas. El límite
+      // está para frenar abuso, no para corregir al entrenador.
+      // Ojo al corregir una ficha: guardarEdicion() manda 6 campos, pero en un
+      // update request.resource.data es el documento resultante completo, así
+      // que ts y lugar llegan aquí con el valor ya guardado y se validan igual.
       allow create, update: if request.resource != null
                             && request.resource.data.size() < 20
-                            && request.resource.data.fecha is string;
+                            && request.resource.data.fecha is string
+                            && request.resource.data.fecha.size() <= 10
+                            && request.resource.data.local is string
+                            && request.resource.data.local.size() <= 300
+                            && request.resource.data.visitante is string
+                            && request.resource.data.visitante.size() <= 300
+                            && request.resource.data.competicion is string
+                            && request.resource.data.competicion.size() <= 300
+                            && request.resource.data.lugar is string
+                            && request.resource.data.lugar.size() <= 300;
 
+      // El id siempre es literalmente "informe": archivar(), borrar() y abrir()
+      // no usan ningún otro. Fijarlo impide colgar documentos arbitrarios de un
+      // partido para usar la pizarra de almacén ajeno.
       match /detalle/{docId} {
         allow read: if true;
         allow delete: if true;
-        allow create, update: if request.resource != null
+        allow create, update: if docId == 'informe'
+                              && request.resource != null
+                              && request.resource.data.keys().hasOnly(['datos'])
                               && request.resource.data.datos is string
                               && request.resource.data.datos.size() < 900000;
       }
