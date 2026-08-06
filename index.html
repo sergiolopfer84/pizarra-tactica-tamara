@@ -37,7 +37,12 @@
       <h1 class="auth-logo"><img id="authLogo" alt="" /></h1>
       <p>Escribe tu clave de acceso. Cada clave tiene su propia pizarra: usa la misma clave en el PC, la tablet o el móvil y verás los mismos datos en todos.</p>
       <form id="authForm">
-        <input id="accessKey" type="text" placeholder="Tu clave de acceso" autocomplete="off" required />
+        <!-- autocapitalize y autocorrect no son adorno: la clave se convierte en el
+             ID del documento tal cual se escriba, y el teclado del móvil pone
+             mayúscula en la primera letra por su cuenta. "udtamaraceite-2026" y
+             "Udtamaraceite-2026" son dos pizarras distintas y vacías la una para
+             la otra. Con claves numéricas nunca se notó; con letras, sí. -->
+        <input id="accessKey" type="text" placeholder="Tu clave de acceso" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required />
         <button class="btn primary" type="submit" id="enterBtn">Entrar</button>
       </form>
       <p class="auth-error" id="authError"></p>
