@@ -4,7 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#2d087f" />
-  <title>UD Tamaraceite | Pizarra técnica</title>
+  <!-- Provisional: applyBrand() lo reescribe como "<club> | <app>" en cuanto
+       carga app.js, para que ni el club ni el nombre del producto queden fijos
+       aquí. Este valor solo se ve el instante previo. -->
+  <title>Dirige Tu Club</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="logo/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="logo/icon-512.png" />
+  <link rel="apple-touch-icon" href="logo/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
@@ -24,8 +31,10 @@
 <body>
   <div id="authOverlay" class="auth-overlay">
     <div class="auth-card">
-      <img class="auth-crest-img" id="authCrest" src="escudos/Escudo-UD-Tamaraceite.png" alt="" />
-      <h1>Pizarra técnica</h1>
+      <!-- El logo ya lleva el nombre dibujado, así que no hay texto que lo repita.
+           Sigue dentro del h1 para que la pantalla conserve su encabezado: el alt
+           (lo pone applyBrand desde APP_BRAND) es lo que leen los lectores. -->
+      <h1 class="auth-logo"><img id="authLogo" alt="" /></h1>
       <p>Escribe tu clave de acceso. Cada clave tiene su propia pizarra: usa la misma clave en el PC, la tablet o el móvil y verás los mismos datos en todos.</p>
       <form id="authForm">
         <input id="accessKey" type="text" placeholder="Tu clave de acceso" autocomplete="off" required />
@@ -63,7 +72,7 @@
     <main>
       <header class="topbar">
         <button class="mobile-menu" aria-label="Abrir menú">☰</button>
-        <div><span class="eyebrow" id="sectionEyebrow">PARTIDO · PLANIFICACIÓN</span><h1 id="pageTitle">Pizarra táctica</h1></div>
+        <div class="topbar-title"><img class="topbar-logo" id="topbarLogo" alt="" /><h1 id="pageTitle">Pizarra táctica</h1></div>
         <div class="header-actions">
           <span class="saved-status"><i id="syncDot"></i><span id="syncLabel">Guardado</span></span>
           <button class="btn secondary" id="callBtn" title="Preparar convocatoria">📋 <span>Convocatoria</span></button>

@@ -149,8 +149,12 @@ function persist(show=false){
 }
 function avatarStyle(p){return p.photo?`style="background-image:url('${p.photo}')"`:''}
 const VIEW_TITLES={board:'Pizarra táctica',squad:'Gestión de plantilla',training:'Entrenamientos',rival:'Análisis del rival',report:'Informe del partido',matches:'Partidos jugados'};
-const VIEW_EYEBROWS={board:'PARTIDO · PLANIFICACIÓN',squad:'EQUIPO · TEMPORADA 2026/27',training:'SESIONES · PREPARACIÓN',rival:'SCOUTING · PRÓXIMO PARTIDO',report:'ESTADÍSTICAS · ZONAS DEL CAMPO',matches:'HISTÓRICO · TEMPORADA'};
-function switchView(v){$$('.view,.nav-item').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$(`.nav-item[data-view="${v}"]`).classList.add('active');$('#pageTitle').textContent=VIEW_TITLES[v]||'';$('#sectionEyebrow').textContent=VIEW_EYEBROWS[v]||'';$('.sidebar').classList.remove('open');renderAll()}
+/* El rótulo pequeño de la cabecera ("PARTIDO · PLANIFICACIÓN" y sus hermanos) lo
+   sustituye ahora el logo de la app. No se pierde nada: repetía en mayúsculas lo
+   que el h1 de debajo ya dice, mientras que ese h1 sí hace falta —en móvil la
+   barra lateral se esconde tras el ☰ y el título es la única pista de en qué
+   sección estás—, así que el h1 se queda y el adorno deja su sitio a la marca. */
+function switchView(v){$$('.view,.nav-item').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$(`.nav-item[data-view="${v}"]`).classList.add('active');$('#pageTitle').textContent=VIEW_TITLES[v]||'';$('.sidebar').classList.remove('open');renderAll()}
 $$('.nav-item').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$$('[data-go-squad]').forEach(b=>b.onclick=()=>switchView('squad'));$$('[data-go-rival]').forEach(b=>b.onclick=()=>switchView('rival'));$('.mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 function renderTabs(){$('#tacticTabs').innerHTML=state.tactics.map((t,i)=>`<button class="tactic-tab ${t.id===state.activeTactic?'active':''}" data-id="${t.id}">${esc(t.name)}${state.tactics.length>1?`<span class="remove" data-remove="${t.id}">×</span>`:''}</button>`).join('');$$('.tactic-tab').forEach(b=>b.onclick=e=>{if(e.target.dataset.remove){e.stopPropagation();state.tactics=state.tactics.filter(t=>t.id!==e.target.dataset.remove);if(state.activeTactic===e.target.dataset.remove)state.activeTactic=state.tactics[0].id}else state.activeTactic=b.dataset.id;persist();renderAll()})}
 $('#addTactic').onclick=()=>{const n=state.tactics.length+1,id='t'+Date.now();state.tactics.push({id,name:`Táctica ${n}`,formation:'4-3-3',placed:[],arrows:[]});state.activeTactic=id;persist();renderAll()};
@@ -370,13 +374,36 @@ $('#saveBtn').onclick=()=>persist(true);$('#printBtn').onclick=()=>{document.bod
    no haya subido ninguno, incluida la pantalla de acceso. */
 const DEFAULT_CREST='escudos/Escudo-UD-Tamaraceite.png';
 const crestSrc=()=>state.crest||DEFAULT_CREST;
+/* ===== Identidad de la APLICACIÓN =====
+   Ojo a la diferencia con el bloque de arriba: el club vive en state.club y
+   state.crest, que se serializan en el campo `data` y viajan por la nube, así
+   que cada pizarra tiene el suyo y el usuario lo cambia desde la interfaz. La
+   marca del producto NO puede ir ahí: sería una copia por pizarra y applyRemote()
+   la sobrescribiría con lo que mandase otro dispositivo. Por eso es una
+   constante suelta, y por eso revender la app con otra marca es tocar solo
+   estas dos líneas. */
+const APP_BRAND={
+  nombre:'Dirige Tu Club',
+  logo:'logo/dtc-logo-horizontal-transparente.png'
+};
 function applyBrand(){
   const src=crestSrc(),nombre=state.club||'Equipo';
   // Solo se reasigna si cambia: renderAll() se llama a menudo y volver a poner
   // el mismo data URL hace parpadear la imagen.
   ['#brandCrest','#matchCrest'].forEach(sel=>{const el=$(sel);if(el.getAttribute('src')!==src)el.setAttribute('src',src)});
   if($('#brandName').textContent!==nombre.toUpperCase())$('#brandName').textContent=nombre.toUpperCase();
-  if($('#matchClub').textContent!==nombre)$('#matchClub').textContent=nombre
+  if($('#matchClub').textContent!==nombre)$('#matchClub').textContent=nombre;
+  // El logo de la app: mismo criterio de "solo si cambia" que el escudo. La ruta
+  // no está en el HTML para que APP_BRAND siga siendo el único sitio que tocar.
+  ['#authLogo','#topbarLogo'].forEach(sel=>{
+    const el=$(sel);if(!el)return;
+    if(el.getAttribute('src')!==APP_BRAND.logo)el.setAttribute('src',APP_BRAND.logo);
+    if(el.getAttribute('alt')!==APP_BRAND.nombre)el.setAttribute('alt',APP_BRAND.nombre)
+  });
+  // Club a la izquierda, producto a la derecha: es lo que se ve en la pestaña y
+  // en el marcador si alguien guarda la página.
+  const titulo=`${nombre} | ${APP_BRAND.nombre}`;
+  if(document.title!==titulo)document.title=titulo
 }
 function openClub(){
   $('#clubName').value=state.club||'';
@@ -1898,6 +1925,14 @@ renderAll();
 const FIREBASE_CONFIG={apiKey:'AIzaSyBrysK7UDFDW_XpY1tSFnrQSX9rD8mbrrQ',authDomain:'pizarra-tamara-2026.firebaseapp.com',projectId:'pizarra-tamara-2026',storageBucket:'pizarra-tamara-2026.firebasestorage.app',messagingSenderId:'886197824457',appId:'1:886197824457:web:4beab9509451daac1c9618'};
 const CLIENT_ID='c'+Math.random().toString(36).slice(2)+Date.now().toString(36);
 let db=null,boardRef=null,keyHash='',saveTimer=null,unsubscribe=null;
+/* Declaradas aquí, ANTES del try: `nubeActiva=true` se asigna dentro de él, y
+   con la declaración veinte líneas más abajo caía en la zona muerta del `let`.
+   Resultado: ReferenceError en cada arranque, que el catch camuflaba de
+   "Firebase no disponible" cuando en realidad `db` ya estaba asignado y la
+   sincronización funcionaba. Lo que quedaba roto era el semáforo del modo en
+   directo: con `nubeActiva` en false, estadoSync() devolvía 'off' siempre y
+   marcaba "Sin conexión" aunque todo estuviese subiendo. */
+let nubePend=0,syncOk=false,nubeActiva=false;
 try{
   if(typeof firebase!=='undefined'&&FIREBASE_CONFIG.projectId!=='__PROJECT'+'_ID__'){
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -1919,11 +1954,9 @@ async function sha256hex(text){
    la barra del modo en directo: verde sincronizado, ámbar pendiente de subir,
    gris sin conexión. `nubePend` cuenta las escrituras de evento que aún no ha
    confirmado el servidor; sin cobertura la promesa de Firestore se queda
-   colgada hasta que vuelve la red, que es justo lo que el ámbar quiere decir. */
-// `nubeActiva` en vez de mirar `db`: esa variable se declara mucho más abajo y
-// la primera pintada de la página ocurre antes, así que leerla desde aquí
-// reventaría al arrancar.
-let nubePend=0,syncOk=false,nubeActiva=false;
+   colgada hasta que vuelve la red, que es justo lo que el ámbar quiere decir.
+   `nubePend`, `syncOk` y `nubeActiva` se declaran arriba, junto a `db`: aquí
+   abajo quedaban dentro de la zona muerta del `let` y reventaban al arrancar. */
 function setSync(ok,label){
   syncOk=ok;
   const dot=$('#syncDot'),lab=$('#syncLabel');
