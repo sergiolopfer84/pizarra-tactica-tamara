@@ -2267,12 +2267,40 @@ async function connectBoard(key){
     }else setSync(false,'Sin sincronizar')
   })
 }
+/* ¿Existe ya esta pizarra?
+   Solo se usa para decidir si la clave ABRE algo o intentaría fabricarlo.
+
+   Falla ABIERTO a propósito. Si la comprobación no se puede hacer —sin
+   cobertura en el campo, Firestore tardando, permiso denegado— se deja pasar y
+   que decida connectBoard(). Al revés, un fallo de red dejaría al entrenador
+   plantado en la pantalla de acceso a diez minutos del partido, que es mucho
+   peor que crear una pizarra de más. */
+async function pizarraExiste(clave){
+  if(!db)return true;
+  try{
+    const h=await sha256hex('udt·pizarra·'+clave);
+    const d=await db.collection('pizarras').doc(h).get();
+    return d.exists
+  }catch(e){ console.warn('No se pudo comprobar si la pizarra existe:',e); return true }
+}
+
 $('#authForm').onsubmit=async e=>{
   e.preventDefault();
   const k=$('#accessKey').value.trim();
   if(k.length<6){$('#authError').textContent='La clave debe tener al menos 6 caracteres.';return}
   $('#authError').textContent='';
   const btn=$('#enterBtn');btn.disabled=true;btn.textContent='Conectando…';
+  /* Crear una pizarra nueva ya solo se hace desde una cuenta. Antes, cualquier
+     clave que no existiese fabricaba una pizarra en el acto: eso permitía tener
+     pizarras ilimitadas sin registrarse y saltarse el tope de tres, que solo
+     cuenta lo que hay dentro de una cuenta.
+     Esta puerta sigue ABRIENDO las que ya existen, que es lo que mantiene
+     dentro a quien lleva media temporada con su clave. */
+  if(!await pizarraExiste(k)){
+    $('#authError').innerHTML='No hay ninguna pizarra con esa clave. Para crear una nueva, <a href="/app/login.html">entra con tu cuenta</a>.';
+    btn.disabled=false;btn.textContent='Entrar';
+    return
+  }
   await connectBoard(k);
   btn.disabled=false;btn.textContent='Entrar'
 };
