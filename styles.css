@@ -873,3 +873,5 @@ body.welcome-club .club-welcome-only{display:inline-block}
 body.welcome-club #clubClose{display:none}
 .modal-actions .text-btn{margin-right:auto;padding:0}
 @media(max-width:680px){body.welcome-club .club-welcome-text{padding:14px 18px 0}}
+/* El enlace a la cuenta dentro de la pantalla de acceso por clave. */
+.auth-hint a{color:var(--purple);font-weight:700}

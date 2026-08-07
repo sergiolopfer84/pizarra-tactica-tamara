@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#08223F" />
+  <title>Acceder · Dirige Tu Club</title>
+  <!-- Es una pantalla de cuenta: que no la indexe nadie. -->
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" type="image/png" sizes="192x192" href="../logo/icon-192.png" />
+  <link rel="apple-touch-icon" href="../logo/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="login.css" />
+
+  <!-- Misma versión del SDK que index.html (10.14.1) y en la misma variante
+       "compat". Si una de las dos sube de versión y la otra no, conviven dos
+       SDK distintos sobre el mismo proyecto. -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<main class="shell">
+  <a class="marca" href="/landing/">
+    <img src="../logo/dtc-logo-horizontal-transparente.png" alt="Dirige Tu Club" />
+  </a>
+
+  <!-- Un solo <section> visible cada vez; los cambia mostrar() en login.js. -->
+
+  <!-- ===== Acceder ===== -->
+  <section class="tarjeta" id="pAcceder" hidden>
+    <h1>Entra en tu cuenta</h1>
+    <p class="sub">Tus pizarras te siguen a cualquier dispositivo.</p>
+    <form id="formAcceder" novalidate>
+      <label>Correo electrónico
+        <input type="email" id="accEmail" autocomplete="email" autocapitalize="none" spellcheck="false" required />
+      </label>
+      <label>Contraseña
+        <input type="password" id="accPass" autocomplete="current-password" required />
+      </label>
+      <p class="error" id="errAcceder"></p>
+      <button class="btn" type="submit" id="btnAcceder">Entrar</button>
+    </form>
+    <div class="pie-enlaces">
+      <button type="button" class="enlace" data-ir="pRecuperar">He olvidado la contraseña</button>
+      <button type="button" class="enlace" data-ir="pRegistro">Crear una cuenta</button>
+    </div>
+    <p class="nota">
+      ¿Entras con una clave de acceso de siempre?
+      <a href="/">Sigue por aquí</a> — las claves siguen funcionando.
+    </p>
+  </section>
+
+  <!-- ===== Crear cuenta ===== -->
+  <section class="tarjeta" id="pRegistro" hidden>
+    <h1>Crea tu cuenta</h1>
+    <p class="sub">Gratis para empezar. Hasta 3 pizarras por cuenta.</p>
+    <form id="formRegistro" novalidate>
+      <label>Correo electrónico
+        <input type="email" id="regEmail" autocomplete="email" autocapitalize="none" spellcheck="false" required />
+      </label>
+      <label>Contraseña
+        <input type="password" id="regPass" autocomplete="new-password" minlength="6" required />
+        <small>Mínimo 6 caracteres.</small>
+      </label>
+      <p class="error" id="errRegistro"></p>
+      <button class="btn" type="submit" id="btnRegistro">Crear cuenta</button>
+    </form>
+    <div class="pie-enlaces">
+      <button type="button" class="enlace" data-ir="pAcceder">Ya tengo cuenta</button>
+    </div>
+  </section>
+
+  <!-- ===== Recuperar contraseña ===== -->
+  <section class="tarjeta" id="pRecuperar" hidden>
+    <h1>Recuperar la contraseña</h1>
+    <p class="sub">Te mandamos un enlace para ponerte una nueva.</p>
+    <form id="formRecuperar" novalidate>
+      <label>Correo electrónico
+        <input type="email" id="recEmail" autocomplete="email" autocapitalize="none" spellcheck="false" required />
+      </label>
+      <p class="error" id="errRecuperar"></p>
+      <p class="ok" id="okRecuperar"></p>
+      <button class="btn" type="submit" id="btnRecuperar">Enviar enlace</button>
+    </form>
+    <div class="pie-enlaces">
+      <button type="button" class="enlace" data-ir="pAcceder">Volver</button>
+    </div>
+  </section>
+
+  <!-- ===== Mis pizarras (ya identificado) ===== -->
+  <section class="tarjeta ancha" id="pPizarras" hidden>
+    <h1>Tus pizarras</h1>
+    <p class="sub" id="subPizarras"></p>
+
+    <ul class="lista" id="listaPizarras"></ul>
+
+    <div class="acciones">
+      <button class="btn" type="button" id="btnNueva">Crear una pizarra</button>
+      <button class="btn btn-fantasma" type="button" id="btnVincular">Añadir una que ya tengo</button>
+    </div>
+    <p class="error" id="errPizarras"></p>
+
+    <!-- Vincular una pizarra existente por su clave. Es lo que permite que quien
+         ya venía usando una clave se la meta en su cuenta sin perder nada. -->
+    <form id="formVincular" hidden novalidate>
+      <label>Clave de acceso de esa pizarra
+        <input type="text" id="vinClave" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required />
+        <small>Se comprueba que la pizarra exista antes de añadirla. No se toca ninguno de sus datos.</small>
+      </label>
+      <p class="error" id="errVincular"></p>
+      <div class="acciones">
+        <button class="btn" type="submit" id="btnVincularOk">Añadir</button>
+        <button class="btn btn-fantasma" type="button" id="btnVincularNo">Cancelar</button>
+      </div>
+    </form>
+
+    <p class="nota" id="notaLimite"></p>
+    <div class="pie-enlaces">
+      <span class="quien" id="quien"></span>
+      <button type="button" class="enlace" id="btnSalir">Cerrar sesión</button>
+    </div>
+  </section>
+
+  <!-- Estado inicial: no se enseña ninguna pantalla hasta que Firebase dice si
+       hay sesión abierta, para no ver "Entra en tu cuenta" y que un instante
+       después salte la lista de pizarras. -->
+  <section class="tarjeta" id="pCargando">
+    <p class="cargando">Cargando…</p>
+  </section>
+</main>
+
+<script src="login.js"></script>
+</body>
+</html>

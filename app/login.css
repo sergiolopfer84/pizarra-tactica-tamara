@@ -1,0 +1,169 @@
+/* ===========================================================================
+   Dirige Tu Club · Pantalla de cuenta
+   ---------------------------------------------------------------------------
+   Mobile first. Misma paleta que la landing (la del logo: azul marino y verde),
+   porque esta pantalla es el puente entre las dos y un salto de color aquí se
+   lee como "me he cambiado de sitio".
+
+   Los tokens se repiten en vez de importar landing/style.css a propósito: esa
+   hoja arrastra el héroe, el campo dibujado y las tarjetas, que aquí no pintan
+   nada. Si cambias un color de marca, cámbialo en los dos sitios.
+   ======================================================================== */
+
+:root{
+  --navy:#08223F;
+  --navy-2:#0e3560;
+  --green:#6AC647;
+  --green-2:#58b336;
+  --ink:#181526;
+  --muted:#5f6875;
+  --muted-light:#b9c6d6;
+  --line:#e5e2ec;
+  --white:#fff;
+  --red:#dc4f57;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  min-height:100vh;min-height:100dvh;
+  background:
+    radial-gradient(760px 420px at 80% 0%,rgba(106,198,71,.18),transparent 60%),
+    linear-gradient(165deg,var(--navy),var(--navy-2));
+  color:var(--ink);
+  font:16px/1.55 'DM Sans',system-ui,sans-serif;
+  display:flex;
+}
+
+.shell{
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:22px;
+  padding:26px 18px calc(26px + env(safe-area-inset-bottom));
+}
+
+.marca{display:block}
+.marca img{display:block;height:30px;width:auto}
+/* El logo lleva "Dirige" y "Club" en azul marino y el fondo aquí también lo es:
+   sobre el marino desaparecería. Va dentro de una pastilla blanca. */
+.marca{background:var(--white);border-radius:12px;padding:11px 16px}
+
+h1{font:800 clamp(21px,5.5vw,26px)/1.2 Manrope,sans-serif;margin:0 0 6px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 20px}
+
+.tarjeta{
+  width:100%;max-width:420px;
+  background:var(--white);
+  border-radius:16px;
+  padding:26px 22px;
+  box-shadow:0 24px 60px rgba(4,16,30,.34);
+}
+.tarjeta.ancha{max-width:520px}
+
+/* Antes que nada: el navegador oculta [hidden] con display:none, pero es una
+   regla suya de baja prioridad y CUALQUIER display que se declare aquí la pisa.
+   Pasó con `form{display:grid}`: el formulario de vincular salía siempre
+   abierto pese a llevar el atributo hidden. */
+[hidden]{display:none!important}
+
+form{display:grid;gap:14px}
+label{display:block;font-weight:700;font-size:13px}
+label small{display:block;font-weight:400;font-size:11.5px;color:var(--muted);margin-top:5px}
+
+input{
+  display:block;width:100%;margin-top:6px;
+  /* 16px: por debajo de eso iOS hace zoom al enfocar y descuadra la pantalla. */
+  font-size:16px;
+  border:1px solid #ddd9e3;border-radius:9px;padding:12px;
+  outline:none;background:var(--white);color:var(--ink);
+}
+input:focus{border-color:var(--green-2);box-shadow:0 0 0 3px rgba(106,198,71,.22)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:100%;min-height:48px;padding:13px 20px;
+  border:0;border-radius:10px;
+  background:var(--green);color:var(--navy);
+  font:700 15px Manrope,'DM Sans',sans-serif;
+  text-decoration:none;cursor:pointer;
+  transition:background .15s;
+}
+.btn:hover{background:var(--green-2)}
+.btn:disabled{opacity:.6;cursor:progress}
+.btn:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+
+.btn-fantasma{background:transparent;color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn-fantasma:hover{background:#f4f3f7}
+
+.acciones{display:grid;gap:9px;margin-top:4px}
+
+.enlace{
+  border:0;background:none;padding:8px 0;
+  color:#2f6b19;font:700 13px 'DM Sans',sans-serif;
+  cursor:pointer;text-align:left;
+}
+.enlace:hover{text-decoration:underline}
+
+.pie-enlaces{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;
+  margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+}
+.quien{color:var(--muted);font-size:12px;margin-right:auto;word-break:break-all}
+
+.nota{color:var(--muted);font-size:12px;margin:16px 0 0}
+.nota a{color:#2f6b19;font-weight:700}
+
+/* min-height reservado: sin él, al aparecer el mensaje de error todo lo de
+   debajo pega un salto y el botón se mueve bajo el dedo. */
+.error,.ok{font-size:12.5px;font-weight:700;margin:0;min-height:16px}
+.error{color:var(--red)}
+.ok{color:#2f6b19}
+
+.cargando{color:var(--muted);text-align:center;margin:0;padding:14px 0}
+
+/* ===== Lista de pizarras ===== */
+.lista{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:10px}
+.lista:empty{display:none}
+/* La fila entera en flex: el botón de quitar va al lado de la pizarra, no
+   debajo. El <li> por defecto es display:list-item y los apilaba. */
+.lista li{display:flex;align-items:center;gap:4px}
+.lista li>.pizarra{flex:1;min-width:0}
+
+.pizarra{
+  display:flex;align-items:center;gap:13px;
+  width:100%;text-align:left;
+  border:1px solid var(--line);border-radius:12px;
+  background:var(--white);padding:13px;
+  font:inherit;cursor:pointer;
+  transition:border-color .15s,background .15s;
+}
+.pizarra:hover{border-color:#9fd88a;background:#f8fcf6}
+.pizarra:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+
+.pizarra .escudo{
+  width:38px;height:38px;flex:none;
+  object-fit:contain;
+}
+.pizarra .texto{min-width:0;flex:1}
+.pizarra strong{display:block;font:700 15px Manrope,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pizarra small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pizarra .flecha{color:var(--muted);font-size:18px;flex:none}
+
+.quitar{
+  border:0;background:none;flex:none;
+  color:var(--muted);font-size:17px;line-height:1;
+  /* 44px: objetivo táctil utilizable con el pulgar. */
+  min-width:44px;min-height:44px;
+  cursor:pointer;border-radius:8px;
+}
+.quitar:hover{color:var(--red);background:#fdf1f2}
+
+@media(min-width:560px){
+  .tarjeta{padding:32px 30px}
+  .acciones{grid-template-columns:repeat(2,1fr)}
+  .marca img{height:34px}
+}
+
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}

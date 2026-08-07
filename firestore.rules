@@ -1,6 +1,34 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    /* ===== Cuenta de usuario =====
+       Una cuenta es una LISTA de claves de acceso, nada más:
+         usuarios/{uid} = { pizarras: [ {clave, nombre, creada} ] }
+
+       Convive con el acceso por clave de toda la vida, que sigue intacto abajo.
+       Quien entra tecleando su clave no pasa por aquí; la cuenta solo sirve para
+       tener las pizarras a mano y para poner el tope de tres.
+
+       Ojo con lo que esto NO es todavía: la clave sigue siendo lo que da acceso
+       a una pizarra. Un documento de /pizarras aún no sabe de quién es, así que
+       estas reglas no protegen la pizarra, solo la lista. Cerrar ese muro exige
+       marcar cada pizarra con su dueño y dejaría fuera a quien no se haya
+       registrado, así que va aparte y después de avisar. */
+    match /usuarios/{uid} {
+      // Cada uno ve y borra lo suyo y nada más. Sin `list`: la colección entera
+      // no se puede pedir ni estando identificado.
+      allow get, delete: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+
+      // El tope de 3 se comprueba AQUÍ, no solo en la interfaz: el botón se puede
+      // saltar desde la consola del navegador, esta regla no.
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.resource.data.keys().hasOnly(['pizarras'])
+                            && request.resource.data.pizarras is list
+                            && request.resource.data.pizarras.size() <= 3;
+    }
+
     // Cada pizarra vive en un documento cuyo ID es el hash de la clave de acceso.
     // Solo quien conoce la clave puede llegar a su documento.
     match /pizarras/{boardId} {
