@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- El azul marino del logo, no el morado de la app: es lo primero que se ve
+       al abrirla desde el móvil y es el color que domina esta página. -->
+  <meta name="theme-color" content="#08223F" />
+  <title>Dirige Tu Club · Pizarra táctica y gestión de plantilla para entrenadores</title>
+  <meta name="description" content="Pizarra táctica, plantilla, formaciones y convocatoria por WhatsApp. Se sincroniza entre el móvil, la tablet y el PC. Sin instalar nada." />
+
+  <!-- Rutas relativas a propósito: así la página también se puede abrir con
+       doble clic desde el disco para revisarla, sin levantar ningún servidor. -->
+  <link rel="icon" type="image/png" sizes="192x192" href="../logo/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="../logo/icon-512.png" />
+  <link rel="apple-touch-icon" href="../logo/apple-touch-icon.png" />
+
+  <!-- Las dos mismas familias que ya carga la app (index.html), con los mismos
+       pesos. Ni una dependencia externa más que estas. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+
+  <meta property="og:title" content="Dirige Tu Club" />
+  <meta property="og:description" content="La pizarra táctica y la plantilla de tu equipo, en el móvil y siempre al día." />
+  <meta property="og:type" content="website" />
+</head>
+<body>
+
+<!-- ===== Cabecera ===== -->
+<header class="nav">
+  <a class="nav-logo" href="#inicio">
+    <img src="../logo/dtc-logo-horizontal-transparente.png" alt="Dirige Tu Club" />
+  </a>
+  <!-- En móvil solo cabe una acción: la que lleva a registrarse. El enlace de
+       "ya tengo clave" vive en el héroe, donde hay sitio para explicarlo. -->
+  <a class="btn btn-sm" href="/app/login.html">Acceder</a>
+</header>
+
+<main id="inicio">
+
+  <!-- ===== Héroe ===== -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-text">
+        <p class="eyebrow">Para cuerpos técnicos de fútbol</p>
+        <h1>Prepara el partido desde el móvil, no desde una libreta.</h1>
+        <p class="lead">
+          Pizarra táctica, plantilla, formaciones y la convocatoria lista para el grupo de WhatsApp.
+          Todo en el mismo sitio y sincronizado entre tu móvil, la tablet y el PC del vestuario.
+        </p>
+
+        <div class="cta-row">
+          <a class="btn btn-lg" href="/app/login.html">Acceder / Registrarse</a>
+          <!-- Puente hacia la app que YA funciona hoy con clave de acceso. En
+               cuanto exista el registro real, este enlace se puede quitar sin
+               tocar nada más. -->
+          <a class="btn btn-ghost btn-lg" href="/">Ya tengo clave de acceso</a>
+        </div>
+
+        <p class="cta-note">Empezar es gratis. Sin instalar nada y sin tarjeta.</p>
+      </div>
+
+      <!-- Campo dibujado con CSS, no una imagen: no añade descarga ni depende de
+           ningún archivo, y se puede retocar el color desde las variables. -->
+      <div class="hero-art" aria-hidden="true">
+        <div class="pitch">
+          <div class="pitch-lines"></div>
+          <span class="pitch-box top"></span>
+          <span class="pitch-box bottom"></span>
+          <span class="pitch-circle"></span>
+          <span class="pitch-half"></span>
+          <i class="token t1">9</i>
+          <i class="token t2">10</i>
+          <i class="token t3">7</i>
+          <i class="token rival r1"></i>
+          <i class="token rival r2"></i>
+          <svg class="pitch-arrow" viewBox="0 0 100 140" preserveAspectRatio="none">
+            <defs>
+              <!-- markerUnits vale strokeWidth por defecto, así que estas
+                   medidas se multiplican por el grosor del trazo: con 3 de
+                   ancho la punta ya sale bastante más grande que la línea. -->
+              <marker id="head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3" markerHeight="3" orient="auto">
+                <path d="M0 0 L10 5 L0 10 z" fill="#f6c344" />
+              </marker>
+            </defs>
+            <path d="M30 96 C 40 70, 58 62, 66 40" marker-end="url(#head)" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Características ===== -->
+  <section class="features wrap" id="funciones">
+    <p class="eyebrow center">Qué hace</p>
+    <h2 class="section-title">Lo que de verdad usas cada semana</h2>
+
+    <div class="cards">
+      <article class="card">
+        <span class="card-icon">▦</span>
+        <h3>Pizarra táctica</h3>
+        <p>
+          Mueve a los jugadores con el dedo y dibuja encima: flechas rectas y curvas,
+          círculos, trazo libre y notas de texto. Guarda todas las variantes que quieras
+          y pasa de una a otra durante la charla.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="card-icon">♙</span>
+        <h3>Gestión de plantilla</h3>
+        <p>
+          Una ficha por jugador con foto, dorsal, demarcación y notas. El estado
+          —disponible, duda, lesionado o sancionado— se ve de un vistazo, así que
+          sabes con quién cuentas antes de dar la lista.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="card-icon">⚑</span>
+        <h3>Formaciones</h3>
+        <p>
+          4-3-3, 4-2-3-1, 4-4-2, 3-5-2, 3-4-3 o campo libre. Cambias de dibujo y los
+          jugadores se colocan solos; a partir de ahí ajustas lo que necesites y lo
+          guardas como una variante más.
+        </p>
+      </article>
+
+      <article class="card">
+        <span class="card-icon">📋</span>
+        <h3>Aviso de convocatoria</h3>
+        <p>
+          Compone el mensaje del partido —rival, campo, fecha, hora de citación y lista
+          de convocados— y lo abre en WhatsApp para que elijas el grupo. Tú das a enviar:
+          la app no manda nada por su cuenta.
+        </p>
+      </article>
+    </div>
+
+    <!-- Tira secundaria: lo que remata la propuesta sin robarle sitio a las
+         cuatro tarjetas de arriba. -->
+    <ul class="extras">
+      <li><b>Modo en directo</b><span>Registra el partido a dos toques y saca el informe por zonas.</span></li>
+      <li><b>Siempre al día</b><span>Misma cuenta en el móvil, la tablet y el PC, en tiempo real.</span></li>
+      <li><b>Tu escudo</b><span>El nombre y el escudo del club, también en el PDF que exportas.</span></li>
+    </ul>
+  </section>
+
+  <!--
+    AQUÍ IRÁ LA SECCIÓN DE PLANES (free / premium).
+    Se deja fuera a propósito: mientras no haya precios ni límites decididos,
+    una tabla de planes inventada solo genera trabajo de deshacer. Los estilos
+    de .card ya sirven de base para las tarjetas de plan.
+  -->
+
+  <!-- ===== Llamada final ===== -->
+  <section class="final">
+    <div class="wrap final-inner">
+      <h2>Crea tu cuenta y monta la primera pizarra hoy.</h2>
+      <p class="final-sub">Tarda menos que dibujar el once en un folio.</p>
+      <a class="btn btn-lg" href="/app/login.html">Acceder / Registrarse</a>
+      <p class="cta-note light">Gratis para empezar. Los planes de pago llegarán más adelante.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <img class="foot-logo" src="../logo/dtc-logo-horizontal-transparente.png" alt="Dirige Tu Club" />
+    <p>Hecho para entrenadores. <span id="year"></span></p>
+  </div>
+</footer>
+
+<script>
+  // Lo único que necesita JavaScript en toda la página: el año del pie. Se pone
+  // aquí en vez de escribirlo a mano para que no se quede viejo solo.
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,264 @@
+/* ===========================================================================
+   Dirige Tu Club · Landing
+   ---------------------------------------------------------------------------
+   Mobile first: todo lo de aquí abajo es la versión de móvil, que es como la
+   van a abrir los entrenadores. Los @media solo AÑADEN a partir de tablet.
+
+   Paleta: la del logo (azul marino + verde), no la morada de la app. El logo
+   es el activo fijo de la marca y es lo primero que se ve; ambos colores están
+   muestreados del propio PNG. El morado de la app se conserva como acento de
+   apoyo para que las dos pantallas no parezcan de productos distintos.
+
+   Ojo con el fondo del logo: "Dirige" y "Club" van en azul marino, así que el
+   PNG NO se puede poner sobre una sección marina o desaparece. Por eso la
+   cabecera y el pie son claros y solo el héroe y el cierre son de color.
+   ======================================================================== */
+
+:root{
+  --navy:#08223F;          /* azul del logo */
+  --navy-2:#0e3560;        /* mismo azul aclarado, para degradados */
+  --green:#6AC647;         /* verde del logo */
+  --green-2:#58b336;       /* verde pulsado */
+  --green-ink:#2f6b19;     /* verde legible sobre fondo blanco */
+  --purple:#31098c;        /* el de la app (styles.css), como acento */
+  --ink:#181526;
+  --muted:#5f6875;
+  --muted-light:#b9c6d6;   /* texto secundario sobre marino */
+  --line:#e5e2ec;
+  --bg:#f6f5f8;
+  --white:#fff;
+  --pitch:#24784e;
+  --pitch-2:#277e52;
+  --radius:14px;
+}
+
+*{box-sizing:border-box}
+
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  background:var(--white);
+  color:var(--ink);
+  font:16px/1.6 'DM Sans',system-ui,sans-serif;
+  /* Ninguna sección debe poder desbordar a lo ancho en un móvil estrecho. */
+  overflow-x:hidden;
+}
+
+h1,h2,h3{font-family:Manrope,'DM Sans',sans-serif;margin:0;line-height:1.18}
+p{margin:0}
+img{max-width:100%;display:block}
+
+.wrap{width:100%;max-width:1080px;margin:0 auto;padding:0 18px}
+
+/* Etiquetas de sección: mismo tratamiento que .eyebrow en la app.
+   El verde de marca sobre blanco se queda en 2:1 de contraste, ilegible a 11px,
+   así que sobre fondo claro va el verde oscuro y el vivo se reserva para el
+   marino del héroe, donde sí contrasta de sobra. */
+.eyebrow{
+  font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--green-ink);margin:0 0 12px
+}
+.eyebrow.center{text-align:center}
+.hero .eyebrow{color:var(--green)}
+
+.section-title{
+  font-size:clamp(24px,6vw,34px);font-weight:800;
+  text-align:center;margin:0 0 32px
+}
+
+/* ===== Botones =====
+   48px de alto mínimo: es el objetivo táctil que se puede pulsar con el pulgar
+   sin apuntar, que es como se usa esto a pie de campo. */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:48px;padding:13px 22px;
+  border:0;border-radius:10px;
+  background:var(--green);color:var(--navy);
+  font:700 15px Manrope,'DM Sans',sans-serif;
+  text-decoration:none;text-align:center;
+  cursor:pointer;transition:background .15s,transform .15s;
+}
+.btn:hover{background:var(--green-2)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+
+.btn-lg{width:100%;font-size:16px;padding:15px 24px}
+.btn-sm{min-height:40px;padding:9px 16px;font-size:13px}
+
+/* Secundario sobre el marino del héroe. */
+.btn-ghost{
+  background:transparent;color:var(--white);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.32);
+}
+.btn-ghost:hover{background:rgba(255,255,255,.10)}
+
+/* ===== Cabecera ===== */
+.nav{
+  position:sticky;top:0;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:12px 18px;
+  background:rgba(255,255,255,.94);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.nav-logo{display:block;flex:0 1 auto;min-width:0}
+.nav-logo img{height:28px;width:auto}
+
+/* ===== Héroe ===== */
+.hero{
+  background:
+    radial-gradient(900px 420px at 78% 6%,rgba(106,198,71,.20),transparent 62%),
+    linear-gradient(165deg,var(--navy),var(--navy-2));
+  color:var(--white);
+  padding:44px 0 52px;
+}
+.hero-grid{display:grid;gap:34px}
+
+.hero h1{font-size:clamp(29px,8vw,40px);font-weight:800;margin:0 0 16px}
+.hero .lead{color:var(--muted-light);font-size:16px;margin:0 0 26px}
+
+.cta-row{display:grid;gap:10px}
+
+.cta-note{margin:16px 0 0;font-size:13px;color:var(--muted-light)}
+.cta-note.light{color:rgba(8,34,63,.72)}
+
+/* ===== Campo del héroe (CSS puro, sin imagen) =====
+   Misma proporción 10/14 y mismos verdes que la pizarra real de la app, para
+   que quien entre reconozca la pantalla que va a encontrarse dentro. */
+.hero-art{display:flex;justify-content:center}
+.pitch{
+  position:relative;
+  width:min(100%,270px);aspect-ratio:10/14;
+  background:var(--pitch);
+  border-radius:10px;overflow:hidden;
+  box-shadow:0 18px 40px rgba(0,0,0,.38);
+}
+.pitch-lines{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,var(--pitch) 0,var(--pitch) 10%,var(--pitch-2) 10%,var(--pitch-2) 20%);
+}
+.pitch-lines::after{
+  content:"";position:absolute;inset:4%;border:2px solid rgba(255,255,255,.7);
+}
+.pitch-box{position:absolute;left:26%;width:48%;height:15%;border:2px solid rgba(255,255,255,.7)}
+.pitch-box.top{top:4%;border-top:0}
+.pitch-box.bottom{bottom:4%;border-bottom:0}
+.pitch-half{position:absolute;top:50%;left:4%;right:4%;border-top:2px solid rgba(255,255,255,.7)}
+.pitch-circle{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:24%;aspect-ratio:1;border:2px solid rgba(255,255,255,.7);border-radius:50%;
+}
+
+/* Fichas: mismo lenguaje que .player-token de la app (círculo, borde blanco). */
+.token{
+  position:absolute;transform:translate(-50%,-50%);
+  width:30px;height:30px;border-radius:50%;
+  background:var(--purple);border:2.5px solid var(--white);
+  color:var(--white);font:800 11px Manrope,sans-serif;font-style:normal;
+  display:grid;place-items:center;
+  box-shadow:0 3px 8px rgba(0,0,0,.42);
+  z-index:3;
+}
+.token.rival{background:#20232b;border-color:#ffbd35}
+.t1{left:30%;top:70%}
+.t2{left:60%;top:56%}
+.t3{left:70%;top:30%}
+.r1{left:46%;top:42%}
+.r2{left:34%;top:24%}
+
+.pitch-arrow{position:absolute;inset:0;width:100%;height:100%;z-index:2}
+.pitch-arrow path{
+  fill:none;stroke:#f6c344;stroke-width:3;stroke-linecap:round;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));
+}
+
+/* ===== Características ===== */
+.features{padding:52px 18px 8px}
+
+.cards{display:grid;gap:14px}
+
+.card{
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px 20px;
+  box-shadow:0 2px 8px rgba(39,19,77,.05);
+}
+.card-icon{
+  display:grid;place-items:center;
+  width:44px;height:44px;margin-bottom:14px;
+  border-radius:11px;
+  background:rgba(106,198,71,.16);
+  color:var(--navy);font-size:21px;line-height:1;
+}
+.card h3{font-size:19px;font-weight:800;margin:0 0 8px}
+.card p{color:var(--muted);font-size:14.5px}
+
+/* Tira secundaria de remate. */
+.extras{
+  list-style:none;margin:26px 0 0;padding:0;
+  display:grid;gap:12px;
+}
+.extras li{
+  border-top:2px solid var(--green);
+  padding-top:12px;
+}
+.extras b{display:block;font:800 14px Manrope,sans-serif;margin-bottom:3px}
+.extras span{display:block;color:var(--muted);font-size:13.5px}
+
+/* ===== Llamada final ===== */
+.final{
+  margin-top:52px;
+  background:var(--green);
+  color:var(--navy);
+  padding:46px 0;
+}
+.final-inner{text-align:center}
+.final h2{font-size:clamp(23px,6vw,32px);font-weight:800;margin:0 0 10px}
+.final-sub{font-size:15.5px;margin:0 0 24px;color:rgba(8,34,63,.8)}
+/* Sobre verde el botón se invierte: marino sólido, que es lo que más contrasta. */
+.final .btn{background:var(--navy);color:var(--white)}
+.final .btn:hover{background:#0b2c52}
+.final .btn:focus-visible{outline-color:var(--navy)}
+
+/* ===== Pie ===== */
+.foot{background:var(--bg);border-top:1px solid var(--line);padding:30px 0}
+.foot-inner{display:grid;gap:12px;justify-items:center;text-align:center}
+.foot-logo{height:26px;width:auto}
+.foot p{color:var(--muted);font-size:13px}
+
+/* ===========================================================================
+   Tablet
+   ======================================================================== */
+@media(min-width:640px){
+  .cta-row{grid-template-columns:repeat(2,auto);justify-content:start}
+  .btn-lg{width:auto}
+  .cards{grid-template-columns:repeat(2,1fr);gap:16px}
+  .extras{grid-template-columns:repeat(3,1fr);gap:20px}
+  .features{padding-top:64px}
+  .nav-logo img{height:32px}
+  .hero{padding:60px 0 68px}
+}
+
+/* ===========================================================================
+   Escritorio: el héroe pasa a dos columnas y el campo se va al lado del texto.
+   ======================================================================== */
+@media(min-width:900px){
+  .hero-grid{grid-template-columns:1.15fr .85fr;align-items:center;gap:46px}
+  .hero{padding:78px 0 86px}
+  .hero .lead{font-size:17px;max-width:50ch}
+  .pitch{width:min(100%,320px)}
+  .section-title{margin-bottom:42px}
+  .final{padding:60px 0}
+}
+
+@media(min-width:1024px){
+  .cards{grid-template-columns:repeat(4,1fr)}
+  .card{padding:24px 22px}
+}
+
+/* Respeta a quien haya pedido menos animación en el sistema. */
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
