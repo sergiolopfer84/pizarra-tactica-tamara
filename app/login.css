@@ -123,6 +123,22 @@ input:focus{border-color:var(--green-2);box-shadow:0 0 0 3px rgba(106,198,71,.22
 
 .cargando{color:var(--muted);text-align:center;margin:0;padding:14px 0}
 
+/* ===== Aviso de correo sin confirmar =====
+   Ámbar y no rojo: no ha fallado nada, falta un paso. */
+.aviso{
+  border:1px solid #f0dca8;background:#fdf7e8;
+  border-radius:12px;padding:16px;margin:0 0 18px;
+}
+.aviso strong{display:block;font:800 15px Manrope,sans-serif;margin-bottom:5px}
+.aviso p{margin:0 0 10px;font-size:13px;color:#6b5a2c}
+.aviso b{word-break:break-all}
+.aviso .nota{margin:10px 0 0;font-size:11.5px}
+.aviso .acciones{margin:0}
+/* Dentro del aviso solo se reserva UN hueco de mensaje, no dos: nunca se
+   enseñan a la vez (o confirmó o no) y reservando los dos quedaba un vacío
+   grande entre el texto y los botones. */
+.aviso .ok{min-height:0}
+
 /* ===== Lista de pizarras ===== */
 .lista{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:10px}
 .lista:empty{display:none}

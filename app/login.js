@@ -118,7 +118,13 @@ $('#formAcceder').onsubmit=async e=>{
 $('#formRegistro').onsubmit=async e=>{
   e.preventDefault();limpiarAvisos();
   const b=$('#btnRegistro');ocupado(b,'Creando…');
-  try{ await auth.createUserWithEmailAndPassword($('#regEmail').value.trim(),$('#regPass').value) }
+  try{
+    const cred=await auth.createUserWithEmailAndPassword($('#regEmail').value.trim(),$('#regPass').value);
+    // Firebase NO manda nada por su cuenta al crear la cuenta: hay que pedirlo.
+    // Si falla el envío la cuenta ya existe igual, así que no se propaga el
+    // error: el usuario acaba en la lista con el aviso y el botón de reenviar.
+    try{ await cred.user.sendEmailVerification() }catch(err){ console.warn('No se pudo enviar la verificación:',err) }
+  }
   catch(err){ $('#errRegistro').textContent=mensajeError(err) }
   finally{ libre(b) }
 };
@@ -136,6 +142,50 @@ $('#formRecuperar').onsubmit=async e=>{
 };
 
 $('#btnSalir').onclick=()=>auth.signOut();
+
+/* ===== Correo confirmado =====
+   El muro de verdad está en firestore.rules; esto es lo que lo explica y da
+   salida. Sin esta pantalla el usuario solo vería un "permission-denied". */
+const verificado=()=>!!(auth.currentUser&&auth.currentUser.emailVerified);
+
+/* Refresca de dónde saca el navegador el "email_verified".
+   Hacen falta las DOS llamadas y por este orden:
+   - reload() actualiza la ficha del usuario (la propiedad emailVerified).
+   - getIdToken(true) fuerza un token nuevo, que es lo que leen las reglas de
+     Firestore. Sin esto el token viejo sigue diciendo false hasta una hora, y
+     guardar seguiría fallando después de haber pulsado el enlace. */
+async function refrescarVerificacion(){
+  if(!auth.currentUser)return false;
+  try{
+    await auth.currentUser.reload();
+    await auth.currentUser.getIdToken(true);
+  }catch(e){ console.warn('No se pudo refrescar la sesión:',e) }
+  return verificado();
+}
+
+$('#btnYaVerificado').onclick=async()=>{
+  limpiarAvisos();
+  const b=$('#btnYaVerificado');ocupado(b,'Comprobando…');
+  try{
+    if(await refrescarVerificacion()){
+      $('#okVerificar').textContent='Listo, correo confirmado.';
+      await pintarPizarras();
+    }else{
+      $('#errVerificar').textContent='Todavía nos consta sin confirmar. Pulsa el enlace del correo y vuelve a intentarlo.';
+    }
+  }finally{ libre(b) }
+};
+
+$('#btnReenviar').onclick=async()=>{
+  limpiarAvisos();
+  const b=$('#btnReenviar');ocupado(b,'Enviando…');
+  try{
+    await auth.currentUser.sendEmailVerification();
+    $('#okVerificar').textContent='Enviado. Puede tardar un minuto en llegar.';
+  }catch(e){
+    $('#errVerificar').textContent=mensajeError(e);
+  }finally{ libre(b) }
+};
 
 /* ===== Pizarras de la cuenta =====
    usuarios/{uid} = { pizarras: [ {clave, nombre, creada} ] }, tope de 3. El
@@ -209,12 +259,21 @@ async function pintarPizarras(){
     ul.append(li);
   }
 
+  // Dos motivos distintos para no poder añadir, y conviene decir cuál es: si se
+  // deshabilitan los botones sin explicar por qué, parece que la app está rota.
+  const sinConfirmar=!verificado();
+  $('#avisoVerificar').hidden=!sinConfirmar;
+  $('#avisoEmail').textContent=usuario.email||'';
+  if(sinConfirmar)$('#formVincular').hidden=true;
+
   const lleno=pizarras.length>=MAX_PIZARRAS;
-  $('#btnNueva').disabled=lleno;
-  $('#btnVincular').disabled=lleno;
-  $('#notaLimite').textContent=lleno
-    ? 'Has llegado al máximo de '+MAX_PIZARRAS+' pizarras. Quita una para añadir otra.'
-    : 'Puedes tener hasta '+MAX_PIZARRAS+' pizarras en esta cuenta ('+pizarras.length+' de '+MAX_PIZARRAS+').';
+  $('#btnNueva').disabled=lleno||sinConfirmar;
+  $('#btnVincular').disabled=lleno||sinConfirmar;
+  $('#notaLimite').textContent=sinConfirmar
+    ? 'Podrás crear pizarras en cuanto confirmes tu correo.'
+    : (lleno
+      ? 'Has llegado al máximo de '+MAX_PIZARRAS+' pizarras. Quita una para añadir otra.'
+      : 'Puedes tener hasta '+MAX_PIZARRAS+' pizarras en esta cuenta ('+pizarras.length+' de '+MAX_PIZARRAS+').');
 }
 
 /* Abrir = dejarle la clave a la app y salir de aquí. Es el único punto de unión
@@ -297,6 +356,10 @@ auth.onAuthStateChanged(async u=>{
   limpiarAvisos();
   if(!u){ pizarras=[];mostrar('pAcceder');return }
   mostrar('pCargando');
+  // Puede haber confirmado el correo en otra pestaña, o en el móvil mientras
+  // esta sesión seguía abierta: se pregunta al servidor en cada arranque en vez
+  // de fiarse del token que trae la sesión guardada.
+  if(!u.emailVerified)await refrescarVerificacion();
   try{
     await cargarPizarras();
     await pintarPizarras();

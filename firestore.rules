@@ -20,10 +20,22 @@ service cloud.firestore {
       allow get, delete: if request.auth != null && request.auth.uid == uid;
       allow list: if false;
 
-      // El tope de 3 se comprueba AQUÍ, no solo en la interfaz: el botón se puede
-      // saltar desde la consola del navegador, esta regla no.
+      /* El tope de 3 y el correo confirmado se comprueban AQUÍ, no solo en la
+         interfaz: los botones se pueden saltar desde la consola del navegador,
+         estas reglas no.
+
+         email_verified va en el token, así que va con un retraso de hasta una
+         hora respecto a la realidad: quien pulse el enlace del correo seguirá
+         sin poder guardar hasta que su sesión pida un token nuevo. Por eso la
+         pantalla tiene un botón que fuerza getIdToken(true); si se quita, la
+         verificación parecerá que no funciona.
+
+         El muro está solo en la escritura: leer la cuenta (get) sigue
+         permitido sin confirmar, para que el usuario vea su pantalla y el
+         aviso en vez de un error suelto. */
       allow create, update: if request.auth != null
                             && request.auth.uid == uid
+                            && request.auth.token.email_verified == true
                             && request.resource.data.keys().hasOnly(['pizarras'])
                             && request.resource.data.pizarras is list
                             && request.resource.data.pizarras.size() <= 3;

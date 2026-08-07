@@ -97,6 +97,25 @@
     <h1>Tus pizarras</h1>
     <p class="sub" id="subPizarras"></p>
 
+    <!-- Muro de correo sin confirmar. Se puede entrar y mirar, pero no crear ni
+         añadir pizarras: eso lo cortan las reglas, no este aviso.
+         "Ya lo he confirmado" no es un adorno: el token guarda email_verified y
+         se cachea cerca de una hora, así que tras pulsar el enlace del correo la
+         sesión abierta sigue creyendo que no está verificada hasta que se
+         refresca a la fuerza. Sin este botón la queja sería "he pulsado el
+         enlace y no pasa nada". -->
+    <div class="aviso" id="avisoVerificar" hidden>
+      <strong>Confirma tu correo</strong>
+      <p>Te hemos mandado un enlace a <b id="avisoEmail"></b>. Hasta que lo pulses no puedes crear ni añadir pizarras.</p>
+      <p class="error" id="errVerificar"></p>
+      <p class="ok" id="okVerificar"></p>
+      <div class="acciones">
+        <button type="button" class="btn" id="btnYaVerificado">Ya lo he confirmado</button>
+        <button type="button" class="btn btn-fantasma" id="btnReenviar">Reenviar el correo</button>
+      </div>
+      <p class="nota">¿No te llega? Mira en la carpeta de spam: el aviso sale de una dirección automática.</p>
+    </div>
+
     <ul class="lista" id="listaPizarras"></ul>
 
     <div class="acciones">
