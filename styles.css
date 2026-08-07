@@ -855,3 +855,21 @@ body.lm-on .undo-toast{z-index:420}
 .rep-halves td.cero{color:#b9b4c4}
 .rep-halves td.cero small{color:#c9c5d2}
 .rep-halves .rh-tot{background:#f8f6fd;font-weight:800}
+
+/* ===== Bienvenida de una pizarra nueva =====
+   El diálogo de "Datos del club" hace de pantalla de bienvenida cuando la
+   pizarra acaba de crearse. No es un diálogo aparte: solo cambian el rótulo, el
+   texto de arriba y qué botones se ven, y así la subida del escudo sigue
+   viviendo en un único sitio.
+   Por defecto se ocultan las piezas propias de la bienvenida; la clase del body
+   invierte cuáles se enseñan. */
+.club-welcome-text,.club-welcome-only{display:none}
+body.welcome-club .club-welcome-text{display:block;color:#746f82;font-size:12px;margin:0;padding:16px 24px 0}
+body.welcome-club .club-welcome-only{display:inline-block}
+/* Sin ×: cerrar con la aspa dejaría la sensación de haber cancelado algo
+   obligatorio, y no lo es. Se sale por "Más tarde" o por "Hecho".
+   El botón de restaurar escudo NO se toca desde aquí: lo enseña y lo esconde
+   openClub() con estilo en línea, que gana a cualquier regla de esta hoja. */
+body.welcome-club #clubClose{display:none}
+.modal-actions .text-btn{margin-right:auto;padding:0}
+@media(max-width:680px){body.welcome-club .club-welcome-text{padding:14px 18px 0}}

@@ -7,9 +7,18 @@ const formations={
   '3-5-2':[[50,89],[25,72],[50,76],[75,72],[12,50],[35,56],[50,47],[65,56],[88,50],[37,23],[63,23]],
   '3-4-3':[[50,89],[25,72],[50,76],[75,72],[18,50],[40,55],[60,55],[82,50],[18,25],[50,20],[82,25]]
 };
+/* Plantilla de ejemplo de una pizarra nueva.
+   Antes eran los doce jugadores REALES de la UD Tamaraceite, con sus nombres y
+   sus notas médicas ("Molestias leves", "Recuperación muscular"). Eso lo veía
+   cualquiera que estrenase una clave: datos de personas reales en la pizarra de
+   un desconocido. Ahora son once puestos genéricos, que además explican solos
+   para qué sirve cada campo.
+   Siguen siendo DOCE ids (p0…p11) aunque los puestos titulares sean once:
+   seedTrainings() reparte jugadores por estación y llega hasta 'p11'. Con once
+   fichas esas estaciones quedarían señalando a un jugador que no existe. */
 const seedPlayers=[
-  ['Álvaro Robles',1,'Portero','available','Seguridad en el juego aéreo.'],['Aythami',4,'Defensa','available','Central diestro.'],['David García',5,'Defensa','available','Líder de la línea defensiva.'],['Javi Trujillo',2,'Lateral','doubt','Molestias leves. Evaluar antes del partido.'],['Carlos Cid',3,'Lateral','available','Buena proyección ofensiva.'],['Dani Ojeda',6,'Mediocentro','available','Pivote defensivo.'],['Ale González',8,'Mediocentro','available','Llegada desde segunda línea.'],['Samuel Ramos',10,'Mediocentro','available','Balón parado.'],['Eros Delgado',7,'Extremo','available','Ataca bien el espacio.'],['Quintero',11,'Extremo','injured','Recuperación muscular.'],['Asdrúbal',9,'Delantero','available','Referencia ofensiva.'],['Julio Báez',14,'Delantero','suspended','Un partido de sanción.']
-].map((p,i)=>({id:'p'+i,name:p[0],number:p[1],position:p[2],status:p[3],notes:p[4],photo:''}));
+  ['Portero',1,'Portero'],['Lateral derecho',2,'Lateral'],['Central diestro',4,'Defensa'],['Central zurdo',5,'Defensa'],['Lateral izquierdo',3,'Lateral'],['Pivote',6,'Mediocentro'],['Interior derecho',8,'Mediocentro'],['Interior izquierdo',10,'Mediocentro'],['Extremo derecho',7,'Extremo'],['Extremo izquierdo',11,'Extremo'],['Delantero centro',9,'Delantero'],['Portero suplente',13,'Portero']
+].map((p,i)=>({id:'p'+i,name:p[0],number:p[1],position:p[2],status:'available',notes:'',photo:''}));
 /* ===== Zonas del campo: rejilla 3×3 =====
    Siempre relativa al equipo propio: def_* junto a la portería propia, ata_*
    junto a la rival, e izquierda/derecha desde la perspectiva del equipo propio
@@ -99,14 +108,24 @@ function normalizeEvent(e){
   e.id=e.id||('e'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
   return e
 }
-function defaultState(){return {players:seedPlayers.map(p=>({...p})),tactics:[{id:'t1',name:'Táctica 1',formation:'4-3-3',placed:[],arrows:[]}],activeTactic:'t1',match:{opponent:'CD Mensajero',competition:'Tercera Federación',date:'',venue:'Juan Guedes'}}}
+/* El partido arranca en blanco. Antes venía relleno con el contexto de la UD
+   Tamaraceite (rival "CD Mensajero", "Tercera Federación", campo "Juan Guedes"):
+   en la pizarra de otro club eso no es un ejemplo útil, es un dato falso que hay
+   que acordarse de borrar antes de mandar la convocatoria por WhatsApp. */
+function defaultState(){return {players:seedPlayers.map(p=>({...p})),tactics:[{id:'t1',name:'Táctica 1',formation:'4-3-3',placed:[],arrows:[]}],activeTactic:'t1',match:{opponent:'',competition:'',date:'',venue:''}}}
 function normalizeState(s){
   s.players||=[];s.match||={opponent:'',competition:'',date:'',venue:''};
   s.tactics||=[{id:'t1',name:'Táctica 1',formation:'4-3-3',placed:[],arrows:[]}];
   if(!s.tactics.find(t=>t.id===s.activeTactic))s.activeTactic=s.tactics[0].id;
   s.rivals ||= [['Portero rival',1,'Portero'],['Central rival',4,'Defensa'],['Lateral rival',2,'Lateral'],['Mediocentro rival',6,'Mediocentro'],['Delantero rival',9,'Delantero']].map((p,i)=>({id:'r'+i,name:p[0],number:p[1],position:p[2],status:'available',notes:'',photo:''}));
   s.rivalColors ||= {primary:'#20232b',secondary:'#ffbd35'};
-  s.club ||= 'UD Tamaraceite';
+  /* Vacío, no "UD Tamaraceite". Con ||= cualquier pizarra que no hubiese pasado
+     por "Datos del club" se rotulaba sola con el nombre de un club real ajeno.
+     Vacío además es la señal que usa el diálogo de bienvenida para saber que
+     esta pizarra todavía no tiene identidad; applyBrand() ya pinta "Equipo"
+     mientras tanto, así que la cabecera nunca se queda en blanco.
+     Ojo: ??= y no ||=, para no pisar un nombre que el usuario haya guardado. */
+  s.club ??= '';
   s.crest ??= '';
   s.match.time ??= '';s.match.meet ??= '';s.match.notice ??= '';s.match.goals ||= [];
   s.trainings ||= seedTrainings();
@@ -372,8 +391,13 @@ $('#saveBtn').onclick=()=>persist(true);$('#printBtn').onclick=()=>{document.bod
    El escudo se guarda dentro de los datos de la pizarra, así que cada clave
    tiene el suyo y viaja a todos sus dispositivos. Para una venta personalizada
    basta con cambiar el archivo de DEFAULT_CREST: será el que vea quien todavía
-   no haya subido ninguno, incluida la pantalla de acceso. */
-const DEFAULT_CREST='escudos/Escudo-UD-Tamaraceite.png';
+   no haya subido ninguno, incluida la pantalla de acceso.
+   Es un escudo NEUTRO a propósito. Cuando aquí estaba el de la UD Tamaraceite,
+   toda pizarra sin escudo propio —es decir, toda pizarra recién creada— salía
+   con el escudo de ese club. Las pizarras anteriores que dependían de este valor
+   llevan ya su escudo grabado dentro de sus datos, así que cambiarlo no les
+   afecta. */
+const DEFAULT_CREST='escudos/escudo-generico.svg';
 const crestSrc=()=>state.crest||DEFAULT_CREST;
 /* ===== Identidad de la APLICACIÓN =====
    Ojo a la diferencia con el bloque de arriba: el club vive en state.club y
@@ -394,6 +418,10 @@ function applyBrand(){
   ['#brandCrest','#matchCrest'].forEach(sel=>{const el=$(sel);if(el.getAttribute('src')!==src)el.setAttribute('src',src)});
   if($('#brandName').textContent!==nombre.toUpperCase())$('#brandName').textContent=nombre.toUpperCase();
   if($('#matchClub').textContent!==nombre)$('#matchClub').textContent=nombre;
+  // El pie de la barra lateral: antes decía "UD Tamaraceite" en todas las
+  // pizarras porque era texto fijo del HTML y nadie lo reescribía.
+  const pie=$('#coachClub');
+  if(pie&&pie.textContent!==nombre)pie.textContent=nombre;
   // El logo de la app: mismo criterio de "solo si cambia" que el escudo. La ruta
   // no está en el HTML para que APP_BRAND siga siendo el único sitio que tocar.
   ['#authLogo','#topbarLogo'].forEach(sel=>{
@@ -406,15 +434,27 @@ function applyBrand(){
   const titulo=`${nombre} | ${APP_BRAND.nombre}`;
   if(document.title!==titulo)document.title=titulo
 }
-function openClub(){
+/* El mismo diálogo sirve de "Datos del club" y de bienvenida de una pizarra
+   recién creada: solo cambian el rótulo, el texto y qué botones se ven. */
+function openClub(bienvenida){
+  document.body.classList.toggle('welcome-club',!!bienvenida);
+  $('#clubEyebrow').textContent=bienvenida?'BIENVENIDO':'IDENTIDAD';
+  $('#clubTitle').textContent=bienvenida?'¿De qué equipo es esta pizarra?':'Datos del club';
+  $('#clubDone').textContent=bienvenida?'Empezar':'Hecho';
   $('#clubName').value=state.club||'';
   $('#crestPreview').src=crestSrc();
   $('#crestReset').style.display=state.crest?'block':'none';
-  $('#clubDialog').showModal()
+  if(!$('#clubDialog').open)$('#clubDialog').showModal()
 }
-$('#clubBtn').onclick=openClub;
+// Con `onclick=openClub` el navegador pasa el MouseEvent como primer argumento,
+// que es truthy: el diálogo se abriría SIEMPRE en modo bienvenida. De ahí la
+// función envolvente.
+$('#clubBtn').onclick=()=>openClub();
 $('.brand').onclick=e=>{e.preventDefault();openClub()};
 $$('.close-club').forEach(b=>b.onclick=()=>$('#clubDialog').close());
+// En el evento 'close' y no en cada botón: así también se limpia al salir con
+// la tecla Esc, que <dialog> gestiona por su cuenta.
+$('#clubDialog').addEventListener('close',()=>document.body.classList.remove('welcome-club'));
 $('#clubName').oninput=()=>{state.club=$('#clubName').value.trim();applyBrand();persist();renderScoreboard()};
 $('#crestReset').onclick=()=>{state.crest='';$('#crestPreview').src=crestSrc();$('#crestReset').style.display='none';applyBrand();persist(true)};
 $('#crestInput').onchange=e=>{
@@ -2121,7 +2161,21 @@ function applyRemote(json){
   undoStack=[];
   saveLocal();refreshMatchInputs();renderAll();setSync(true)
 }
+/* ===== Bienvenida de una pizarra nueva =====
+   Solo se enseña cuando el SERVIDOR ha confirmado que esta pizarra no existía.
+   Dispararla porque el nombre del club esté vacío se la pondría delante a quien
+   ya tiene su pizarra montada y entra sin cobertura: en ese momento lo que hay
+   en memoria son los datos de ejemplo, no los suyos, y "Empezar" le grabaría el
+   nombre encima de su pizarra real. */
+let bienvenidaVista=false;
+function quizaBienvenida(esNueva){
+  if(bienvenidaVista||!esNueva)return;
+  if(state.club||state.crest)return;   // ya tiene identidad: nada que preguntar
+  bienvenidaVista=true;
+  openClub(true)
+}
 async function connectBoard(key){
+  bienvenidaVista=false;               // cada cambio de clave es otra pizarra
   keyHash=await sha256hex('udt·pizarra·'+key);
   localStorage.setItem('udt-key',key);
   // Copia local de esta clave exactamente: la de STORAGE es la heredada de la
@@ -2132,7 +2186,9 @@ async function connectBoard(key){
   refreshMatchInputs();renderAll();
   $('#authOverlay').classList.add('hidden');
   cloudReady=false;pendingSave=false;offlineWrite=false;clearTimeout(saveTimer);
-  if(!db){setSync(false,'Solo local');return}
+  // Sin Firebase no hay servidor al que preguntar: "nueva" es no tener copia
+  // local de esta clave, que es lo único comprobable aquí.
+  if(!db){setSync(false,'Solo local');quizaBienvenida(!localIsThisBoard);return}
   if(unsubscribe)unsubscribe();
   boardRef=db.collection('pizarras').doc(keyHash);
   subscribeEvents();
@@ -2153,6 +2209,8 @@ async function connectBoard(key){
       offlineWrite=false;
       setSync(true);
       if(pendingSave){pendingSave=false;pushToCloud()}
+      // `remoto` vacío = el servidor confirma que esta pizarra no existía.
+      quizaBienvenida(!remoto);
       return
     }
     if(s.metadata.hasPendingWrites)return;
