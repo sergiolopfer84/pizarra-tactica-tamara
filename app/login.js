@@ -141,7 +141,20 @@ $('#formRecuperar').onsubmit=async e=>{
   finally{ libre(b) }
 };
 
-$('#btnSalir').onclick=()=>auth.signOut();
+/* Cerrar sesión tiene que llevarse TAMBIÉN la pizarra abierta.
+   Hay dos sesiones distintas y es fácil olvidarlo: la cuenta, que vive en
+   Firebase Auth, y la pizarra, que vive en localStorage('udt-key') porque la
+   app se reconecta sola con ella (boot(), en app.js). Cerrando solo la primera,
+   la app seguía entrando directa a la última pizarra: en un ordenador
+   compartido, el siguiente que abriese la web se metía en ella sin teclear
+   nada.
+   Se borra ANTES de signOut() a propósito: si signOut() falla por lo que sea,
+   prefiero haber cerrado la pizarra de más que de menos. */
+$('#btnSalir').onclick=async()=>{
+  localStorage.removeItem('udt-key');
+  try{ await auth.signOut() }
+  catch(e){ console.warn('No se pudo cerrar la sesión:',e) }
+};
 
 /* ===== Correo confirmado =====
    El muro de verdad está en firestore.rules; esto es lo que lo explica y da
