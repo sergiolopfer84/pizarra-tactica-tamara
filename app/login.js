@@ -209,28 +209,6 @@ let usuario=null,pizarras=[];
 
 const refUsuario=()=>db.collection('usuarios').doc(usuario.uid);
 
-/* Publica "este correo es este uid" para que otro entrenador pueda invitarte.
-   Desde el navegador no hay forma de traducir un correo a un uid —eso es cosa
-   del SDK de administración—, así que cada usuario deja su propia equivalencia
-   al entrar. Las reglas solo dejan escribir la fila del correo verificado de
-   uno mismo, de modo que nadie puede ponerse en la fila de otro.
-   Si falla no se interrumpe nada: el usuario podrá trabajar igual, solo que no
-   podrán invitarle hasta que vuelva a entrar. */
-async function publicarCorreo(){
-  if(!usuario.email||!verificado())return;
-  try{
-    await db.collection('correos').doc(usuario.email.toLowerCase()).set({uid:usuario.uid});
-  }catch(e){ console.warn('No se pudo publicar el correo para invitaciones:',e) }
-}
-
-async function cargarPizarras(){
-  const d=await refUsuario().get();
-  pizarras=(d.exists&&Array.isArray(d.data().pizarras))?d.data().pizarras:[];
-}
-async function guardarPizarras(){
-  await refUsuario().set({pizarras},{merge:true});
-}
-
 /* Nombre y escudo salen de la propia pizarra, no de lo que se guardó el día que
    se añadió: si el entrenador le cambia el nombre al club, esta lista tiene que
    enterarse. Si la pizarra no se puede leer se cae al nombre guardado. */
@@ -239,12 +217,115 @@ async function datosDePizarra(clave){
     const h=await hashDeClave(clave);
     const d=await db.collection('pizarras').doc(h).get();
     if(!d.exists)return null;
-    const s=JSON.parse(d.data().data);
-    return {club:s.club||'',crest:s.crest||'',jugadores:(s.players||[]).length};
+    const raw=d.data();
+    const s=JSON.parse(raw.data);
+    return {
+      club:s.club||'',crest:s.crest||'',jugadores:(s.players||[]).length,
+      // Sin `owner` la pizarra es heredada: aún no la ha reclamado nadie.
+      duenio:raw.owner||null,
+      miembros:Array.isArray(raw.miembros)?raw.miembros:[],
+      ref:d.ref
+    };
   }catch(e){ return null }
 }
 
 const ESCUDO_GENERICO='../escudos/escudo-generico.svg';
+
+const MAX_AYUDANTES=10;
+
+/* ===== Cuerpo técnico de una pizarra =====
+   Sustituye a "pásale tu clave al ayudante", que deja de funcionar en cuanto la
+   pizarra tiene dueño. Los invitados se guardan por CORREO en el propio
+   documento de la pizarra, así que se puede invitar a alguien que todavía no
+   tenga cuenta: entrará en cuanto la cree con ese correo y lo confirme. */
+function panelAyudantes(p,info,nombre){
+  const caja=document.createElement('div');
+  caja.className='ayudantes';
+
+  const abrirCerrar=document.createElement('button');
+  abrirCerrar.type='button';abrirCerrar.className='enlace';
+  const rotulo=()=>'Cuerpo técnico ('+lista.length+')';
+  let lista=info.miembros.slice();
+  abrirCerrar.textContent=rotulo();
+
+  const panel=document.createElement('div');
+  panel.className='panel-ayudantes';panel.hidden=true;
+  abrirCerrar.onclick=()=>{panel.hidden=!panel.hidden};
+
+  const ul=document.createElement('ul');ul.className='ayudantes-lista';
+  const aviso=document.createElement('p');aviso.className='error';
+
+  async function guardar(nueva){
+    // merge:true: se toca SOLO la lista de invitados y no se roza el campo
+    // `data`, que es la pizarra entera.
+    await info.ref.set({miembros:nueva},{merge:true});
+    lista=nueva;
+    abrirCerrar.textContent=rotulo();
+    pintar();
+  }
+
+  function pintar(){
+    ul.innerHTML='';
+    if(!lista.length){
+      const vacio=document.createElement('li');
+      vacio.className='vacio';
+      vacio.textContent='Todavía no has invitado a nadie. Solo tú entras en esta pizarra.';
+      ul.append(vacio);
+      return;
+    }
+    lista.forEach(correo=>{
+      const li=document.createElement('li');
+      const txt=document.createElement('span');txt.textContent=correo;
+      const quitar=document.createElement('button');
+      quitar.type='button';quitar.className='quitar';
+      quitar.textContent='×';
+      quitar.title='Quitar del cuerpo técnico';
+      quitar.setAttribute('aria-label','Quitar a '+correo+' de '+nombre);
+      quitar.onclick=async()=>{
+        if(!confirm('¿Quitar a '+correo+' de "'+nombre+'"?\n\nDejará de ver y de editar esta pizarra al momento.'))return;
+        aviso.textContent='';
+        try{ await guardar(lista.filter(c=>c!==correo)) }
+        catch(e){ aviso.textContent=mensajeError(e) }
+      };
+      li.append(txt,quitar);
+      ul.append(li);
+    });
+  }
+  pintar();
+
+  const form=document.createElement('form');
+  form.className='invitar';
+  const campo=document.createElement('input');
+  campo.type='email';campo.placeholder='correo@delayudante.es';
+  campo.autocapitalize='none';campo.spellcheck=false;campo.required=true;
+  campo.setAttribute('aria-label','Correo del ayudante');
+  const enviar=document.createElement('button');
+  enviar.type='submit';enviar.className='btn';enviar.textContent='Invitar';
+
+  form.onsubmit=async e=>{
+    e.preventDefault();aviso.textContent='';
+    // En minúsculas porque las reglas comparan contra el correo del token en
+    // minúsculas: "Ana@x.es" y "ana@x.es" son la misma persona para Firebase.
+    const correo=campo.value.trim().toLowerCase();
+    if(!correo||!correo.includes('@')){aviso.textContent='Escribe un correo válido.';return}
+    if(correo===(usuario.email||'').toLowerCase()){aviso.textContent='Esa pizarra ya es tuya.';return}
+    if(lista.includes(correo)){aviso.textContent='Ya está en el cuerpo técnico.';return}
+    if(lista.length>=MAX_AYUDANTES){aviso.textContent='Máximo '+MAX_AYUDANTES+' personas por pizarra.';return}
+    ocupado(enviar,'Invitando…');
+    try{ await guardar(lista.concat([correo]));campo.value='' }
+    catch(err){ aviso.textContent=mensajeError(err) }
+    finally{ libre(enviar) }
+  };
+  form.append(campo,enviar);
+
+  const nota=document.createElement('p');
+  nota.className='nota';
+  nota.textContent='Entrarán con su propia cuenta, no con tu clave. Si aún no tienen cuenta, podrán crearla con ese mismo correo y les aparecerá esta pizarra.';
+
+  panel.append(ul,form,aviso,nota);
+  caja.append(abrirCerrar,panel);
+  return caja;
+}
 
 async function pintarPizarras(){
   const ul=$('#listaPizarras');
@@ -318,6 +399,10 @@ async function pintarPizarras(){
     pieClave.append(document.createTextNode('Clave: '),cod,copiar);
 
     li.append(fila,pieClave);
+    // El cuerpo técnico solo lo gestiona el dueño. En una pizarra heredada
+    // (todavía sin reclamar) no se ofrece: no hay a quién dar permiso porque
+    // ahí sigue entrando cualquiera con la clave.
+    if(info&&info.duenio&&info.duenio===usuario.uid)li.append(panelAyudantes(p,info,nombre));
     ul.append(li);
   }
 
@@ -427,7 +512,6 @@ auth.onAuthStateChanged(async u=>{
   // esta sesión seguía abierta: se pregunta al servidor en cada arranque en vez
   // de fiarse del token que trae la sesión guardada.
   if(!u.emailVerified)await refrescarVerificacion();
-  publicarCorreo();          // en segundo plano: nada depende de que termine
   try{
     await cargarPizarras();
     await pintarPizarras();

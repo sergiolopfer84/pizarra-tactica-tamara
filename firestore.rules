@@ -31,14 +31,30 @@ service cloud.firestore {
     // null si no tiene dueño. `rec` puede ser resource (lo que hay guardado) o
     // request.resource (lo que se intenta guardar).
     function duenio(rec)   { return rec == null ? null : rec.data.get('owner', null); }
+    // Los invitados van por CORREO en minúsculas, no por uid. Guardarlos por uid
+    // obligaba a un índice aparte que tradujera correo -> uid, porque desde el
+    // navegador no hay forma de preguntarlo; y ese índice dejaba comprobar a
+    // cualquiera si un correo tiene cuenta. Con el correo del propio token no
+    // hace falta índice, no hay fuga, y se puede invitar a alguien ANTES de que
+    // se registre: entrará en cuanto cree su cuenta con ese correo.
     function invitados(rec){ return rec == null ? [] : rec.data.get('miembros', []); }
     function heredada(rec) { return duenio(rec) == null; }
+
+    // El correo del token solo vale si está verificado: sin esa comprobación
+    // cualquiera se daría de alta poniendo el correo de otro y entraría en sus
+    // pizarras sin haberlo confirmado nunca.
+    function correoFiable() {
+      return request.auth != null
+             && request.auth.token.email_verified == true
+             && request.auth.token.email != null;
+    }
 
     function autorizado(rec) {
       return heredada(rec)
              || (request.auth != null
                  && (duenio(rec) == request.auth.uid
-                     || request.auth.uid in invitados(rec)));
+                     || (correoFiable()
+                         && request.auth.token.email.lower() in invitados(rec))));
     }
 
     // La pizarra padre, para las reglas de las subcolecciones. Cuesta UNA
@@ -83,30 +99,6 @@ service cloud.firestore {
                             && request.resource.data.pizarras.size() <= 3;
     }
 
-    /* ===== Índice de correos =====
-       Para invitar al segundo entrenador hace falta traducir su correo a su
-       uid, y desde el navegador no hay forma de preguntarlo: es cosa del SDK
-       de administración. Así que cada usuario publica él mismo su equivalencia
-       al entrar:  correos/{su correo} = { uid: el suyo }.
-
-       Solo se puede escribir la fila de tu PROPIO correo verificado, así que
-       nadie puede colocarse en la fila de otro para recibir sus invitaciones.
-
-       A cambio, cualquiera identificado puede comprobar si un correo concreto
-       tiene cuenta. No se puede listar la colección, hay que acertar el correo
-       entero, pero es una fuga real y consciente: es el precio de invitar por
-       correo sin servidor propio. */
-    match /correos/{correo} {
-      allow get: if request.auth != null;
-      allow list: if false;
-      allow create, update: if request.auth != null
-                            && request.auth.token.email_verified == true
-                            && request.auth.token.email.lower() == correo
-                            && request.resource.data.keys().hasOnly(['uid'])
-                            && request.resource.data.uid == request.auth.uid;
-      allow delete: if request.auth != null && request.auth.token.email.lower() == correo;
-    }
-
     /* ===== La pizarra ===== */
     match /pizarras/{boardId} {
       // "read" concede get Y list, y list no necesita ningún ID: basta con pedir
@@ -145,8 +137,12 @@ service cloud.firestore {
       // La lista de invitados solo la cambia el dueño. Un invitado puede
       // trabajar en la pizarra, pero no meter a nadie más ni echar al dueño.
       function invitadosCoherentes() {
-        return invitados(request.resource) == invitados(resource)
-               || (request.auth != null && duenio(request.resource) == request.auth.uid);
+        return (invitados(request.resource) == invitados(resource)
+                || (request.auth != null && duenio(request.resource) == request.auth.uid))
+               // Un cuerpo técnico no son veinte personas, y sin tope la lista
+               // sirve de almacén: cada correo son bytes en un documento que ya
+               // tiene un límite de 1 MB compartido con toda la pizarra.
+               && invitados(request.resource).size() <= 10;
       }
     }
 

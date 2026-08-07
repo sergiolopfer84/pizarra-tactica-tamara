@@ -203,3 +203,27 @@ input:focus{border-color:var(--green-2);box-shadow:0 0 0 3px rgba(106,198,71,.22
 }
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ===== Cuerpo técnico de una pizarra ===== */
+.ayudantes{padding:2px 13px 0}
+.ayudantes>.enlace{font-size:12px;padding:6px 0}
+.panel-ayudantes{
+  border:1px solid var(--line);border-radius:10px;
+  padding:13px;margin:4px 0 2px;background:#fafafc;
+}
+.ayudantes-lista{list-style:none;margin:0 0 11px;padding:0;display:grid;gap:6px}
+.ayudantes-lista li{
+  display:flex;align-items:center;gap:6px;
+  font-size:12.5px;
+}
+.ayudantes-lista li>span{flex:1;min-width:0;word-break:break-all}
+.ayudantes-lista .vacio{color:var(--muted);font-size:12px;display:block}
+.ayudantes-lista .quitar{min-width:36px;min-height:36px;font-size:15px}
+/* Una sola columna en móvil: el campo de correo necesita el ancho entero. */
+.invitar{display:grid;gap:8px}
+.invitar .btn{min-height:44px;font-size:14px}
+.panel-ayudantes .nota{margin:10px 0 0;font-size:11px}
+.panel-ayudantes .error{margin-top:8px}
+@media(min-width:560px){
+  .invitar{grid-template-columns:1fr auto;align-items:end}
+}
