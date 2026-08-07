@@ -52,8 +52,11 @@
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="#" aria-label="Datos del club" title="Cambiar escudo y nombre del club">
-        <img class="crest-img" id="brandCrest" src="escudos/Escudo-UD-Tamaraceite.png" alt="" />
-        <span><strong id="brandName">UD TAMARACEITE</strong><small>CUERPO TÉCNICO</small></span>
+        <img class="crest-img" id="brandCrest" src="escudos/escudo-generico.svg" alt="" />
+        <!-- Provisional, igual que el <title>: applyBrand() lo reescribe con el
+             club de la pizarra. Neutro para que ese instante previo no enseñe el
+             nombre de un club real que no es el del usuario. -->
+        <span><strong id="brandName">EQUIPO</strong><small>CUERPO TÉCNICO</small></span>
       </a>
       <nav>
         <button class="nav-item active" data-view="board"><span class="icon">▦</span><span>Pizarra táctica</span></button>
@@ -65,7 +68,10 @@
       </nav>
       <div class="sidebar-foot">
         <div class="season"><span>Temporada</span><strong>2026 / 27</strong></div>
-        <div class="coach"><span class="coach-avatar">CT</span><span><strong>Cuerpo técnico</strong><small>UD Tamaraceite</small></span></div>
+        <!-- El nombre lo pone applyBrand() desde los datos de la pizarra. Estaba
+             escrito a fuego como "UD Tamaraceite" y no lo actualizaba nadie, así
+             que ese rótulo aparecía en el pie de TODAS las pizarras. -->
+        <div class="coach"><span class="coach-avatar">CT</span><span><strong>Cuerpo técnico</strong><small id="coachClub"></small></span></div>
         <button id="clubBtn" class="text-btn light" title="Escudo y nombre del club">⚙<span> Datos del club</span></button>
         <button id="exportBackup" class="text-btn light" title="Descargar copia de seguridad">⇩<span> Descargar copia</span></button>
         <button id="importBackup" class="text-btn light" title="Restaurar desde una copia">⇧<span> Restaurar copia</span></button>
@@ -90,12 +96,12 @@
         <div class="match-card">
           <div class="match-main">
             <label>PRÓXIMO PARTIDO</label>
-            <div class="versus"><img class="mini-crest-img" id="matchCrest" src="escudos/Escudo-UD-Tamaraceite.png" alt="" /><span id="matchClub">UD Tamaraceite</span><b>VS</b><input id="opponent" value="CD Mensajero" aria-label="Rival" /></div>
+            <div class="versus"><img class="mini-crest-img" id="matchCrest" src="escudos/escudo-generico.svg" alt="" /><span id="matchClub">Equipo</span><b>VS</b><input id="opponent" value="" placeholder="Rival" aria-label="Rival" /></div>
           </div>
-          <div class="match-meta"><label>COMPETICIÓN</label><input id="competition" value="Tercera Federación" /></div>
+          <div class="match-meta"><label>COMPETICIÓN</label><input id="competition" value="" placeholder="Competición" /></div>
           <div class="match-meta"><label>FECHA</label><input id="matchDate" type="date" /></div>
           <div class="match-meta"><label>HORA</label><input id="matchTime" type="time" /></div>
-          <div class="match-meta"><label>LUGAR</label><input id="venue" value="Juan Guedes" /></div>
+          <div class="match-meta"><label>LUGAR</label><input id="venue" value="" placeholder="Campo" /></div>
         </div>
         <div class="scoreboard" id="scoreboard"></div>
         <div class="live-bar" id="liveBar"></div>
@@ -229,8 +235,13 @@
   </dialog>
   <dialog id="clubDialog">
     <div id="clubForm">
-      <div class="modal-head"><div><span class="eyebrow">IDENTIDAD</span><h2>Datos del club</h2></div><button class="close-club" type="button">×</button></div>
+      <!-- El mismo diálogo hace dos papeles: "Datos del club" de siempre y la
+           bienvenida de una pizarra recién creada (body.welcome-club). No se
+           duplica porque la parte cara —recortar el escudo a 220 px y guardarlo
+           como PNG con transparencia— ya está resuelta aquí una vez. -->
+      <div class="modal-head"><div><span class="eyebrow" id="clubEyebrow">IDENTIDAD</span><h2 id="clubTitle">Datos del club</h2></div><button class="close-club" type="button" id="clubClose">×</button></div>
       <div class="modal-scroll">
+        <p class="club-welcome-text">Ponle cara a tu pizarra. Puedes cambiarlo cuando quieras desde <b>Datos del club</b>.</p>
         <div class="club-edit">
           <label class="club-preview" for="crestInput" title="Cambiar escudo"><img id="crestPreview" alt="" /><i>✎</i></label>
           <div>
@@ -241,9 +252,12 @@
             <input id="crestInput" type="file" accept="image/*" hidden />
           </div>
         </div>
-        <div class="club-fields"><label class="full">Nombre del club<input id="clubName" placeholder="UD Tamaraceite" /></label></div>
+        <div class="club-fields"><label class="full">Nombre del club<input id="clubName" placeholder="Nombre de tu club" /></label></div>
       </div>
-      <div class="modal-actions"><button type="button" class="btn primary close-club">Hecho</button></div>
+      <!-- "Más tarde" solo existe en la bienvenida: el enunciado dice que elegir
+           escudo y nombre no es obligatorio, así que tiene que haber una salida
+           que no sea la × (que en modo bienvenida se oculta). -->
+      <div class="modal-actions"><button type="button" class="text-btn club-welcome-only close-club">Más tarde</button><button type="button" class="btn primary close-club" id="clubDone">Hecho</button></div>
     </div>
   </dialog>
   <dialog id="callDialog">
@@ -251,7 +265,7 @@
       <div class="modal-head"><div><span class="eyebrow">PRÓXIMO PARTIDO</span><h2>Convocatoria</h2></div><button class="close-call" type="button">×</button></div>
       <div class="modal-scroll">
         <div class="call-fields">
-          <label>Equipo<input id="callTeam" placeholder="UD Tamaraceite" /></label>
+          <label>Equipo<input id="callTeam" placeholder="Nombre de tu club" /></label>
           <label>Hora de citación<input id="callMeet" type="time" /></label>
           <label class="full">Aviso para el grupo<input id="callNotice" placeholder="Ej. Traer las dos equipaciones" /></label>
         </div>

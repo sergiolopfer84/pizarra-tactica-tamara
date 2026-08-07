@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Escudo por defecto de una pizarra recién creada.
+
+  Sustituye al de la UD Tamaraceite, que era el que veía CUALQUIER usuario nuevo
+  por no tener escudo propio: el escudo de un club real presidiendo la pizarra de
+  un desconocido. Este es deliberadamente neutro y gris, para que se lea como un
+  hueco por rellenar y no como una marca.
+
+  SVG y no PNG a propósito: pesa 1 KB, se ve nítido tanto en los 26 px de la
+  tarjeta del partido como en los 72 px del diálogo, y no hay que mantener tres
+  tamaños. El fondo es transparente, igual que exige la app para que no salga un
+  recuadro blanco sobre el morado de la barra lateral.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 118 140" width="118" height="140" role="img" aria-label="Escudo sin definir">
+  <defs>
+    <clipPath id="shield">
+      <!-- Misma silueta que dibujaba el CSS con border-radius: hombros rectos,
+           base en punta redondeada. -->
+      <path d="M6 8 h106 v66 c0 34 -26 52 -53 60 C32 126 6 108 6 74 Z"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#shield)">
+    <rect width="118" height="140" fill="#e8e6ee"/>
+    <!-- Franjas apenas visibles: dan cuerpo de escudo sin sugerir colores de
+         ningún equipo. -->
+    <g fill="#dedbe6">
+      <rect x="16" y="0" width="14" height="140"/>
+      <rect x="52" y="0" width="14" height="140"/>
+      <rect x="88" y="0" width="14" height="140"/>
+    </g>
+  </g>
+
+  <path d="M6 8 h106 v66 c0 34 -26 52 -53 60 C32 126 6 108 6 74 Z"
+        fill="none" stroke="#b9b4c6" stroke-width="5"/>
+
+  <!-- Balón esquemático, el símbolo más neutro que hay para "equipo de fútbol". -->
+  <circle cx="59" cy="66" r="23" fill="none" stroke="#a49eb4" stroke-width="4.5"/>
+  <path d="M59 51 l13 9.5 -5 15.5 h-16 l-5 -15.5 Z" fill="#a49eb4"/>
+</svg>
