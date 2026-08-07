@@ -1,7 +1,9 @@
 .claude/
 .agents/
 *.zip
-firebase-debug.log
+# Registros de firebase-tools y de los emuladores (firebase-debug.log,
+# firestore-debug.log, ui-debug.log...). Se regeneran en cada ejecucion.
+*-debug.log
 # Copias de seguridad de las pizarras: contienen datos reales de jugadores
 # (nombres, notas, fotos). El repositorio es público: nunca deben subirse.
 backups/
