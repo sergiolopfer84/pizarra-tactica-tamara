@@ -152,6 +152,7 @@ $('#formRecuperar').onsubmit=async e=>{
    prefiero haber cerrado la pizarra de más que de menos. */
 $('#btnSalir').onclick=async()=>{
   localStorage.removeItem('udt-key');
+  localStorage.removeItem('udt-owner');
   try{ await auth.signOut() }
   catch(e){ console.warn('No se pudo cerrar la sesión:',e) }
 };
@@ -207,6 +208,20 @@ $('#btnReenviar').onclick=async()=>{
 let usuario=null,pizarras=[];
 
 const refUsuario=()=>db.collection('usuarios').doc(usuario.uid);
+
+/* Publica "este correo es este uid" para que otro entrenador pueda invitarte.
+   Desde el navegador no hay forma de traducir un correo a un uid —eso es cosa
+   del SDK de administración—, así que cada usuario deja su propia equivalencia
+   al entrar. Las reglas solo dejan escribir la fila del correo verificado de
+   uno mismo, de modo que nadie puede ponerse en la fila de otro.
+   Si falla no se interrumpe nada: el usuario podrá trabajar igual, solo que no
+   podrán invitarle hasta que vuelva a entrar. */
+async function publicarCorreo(){
+  if(!usuario.email||!verificado())return;
+  try{
+    await db.collection('correos').doc(usuario.email.toLowerCase()).set({uid:usuario.uid});
+  }catch(e){ console.warn('No se pudo publicar el correo para invitaciones:',e) }
+}
 
 async function cargarPizarras(){
   const d=await refUsuario().get();
@@ -293,6 +308,11 @@ async function pintarPizarras(){
    entre las dos pantallas. */
 function abrir(clave){
   localStorage.setItem('udt-key',clave);
+  /* La marca que autoriza a la app a reclamar esta pizarra si aún no tiene
+     dueño. Solo se pone al abrir desde ESTA lista: así se distingue "es mía"
+     de "he tecleado una clave que me han pasado", y el ayudante que abra la
+     clave compartida no se queda con la pizarra del entrenador. */
+  localStorage.setItem('udt-owner',usuario.uid);
   location.href='/';
 }
 
@@ -373,6 +393,7 @@ auth.onAuthStateChanged(async u=>{
   // esta sesión seguía abierta: se pregunta al servidor en cada arranque en vez
   // de fiarse del token que trae la sesión guardada.
   if(!u.emailVerified)await refrescarVerificacion();
+  publicarCorreo();          // en segundo plano: nada depende de que termine
   try{
     await cargarPizarras();
     await pintarPizarras();

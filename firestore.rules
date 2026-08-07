@@ -1,19 +1,61 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    /* =====================================================================
+       QUIÉN PUEDE ENTRAR EN UNA PIZARRA
+       ---------------------------------------------------------------------
+       Hasta aquí el acceso era "quien sepa la clave entra": el ID del
+       documento es el hash de la clave y con eso bastaba. Eso quiere decir
+       que una clave adivinada o filtrada daba acceso completo, sin cuenta y
+       sin rastro.
+
+       Ahora una pizarra puede tener DUEÑO:
+
+         · sin `owner`  -> heredada. Sigue funcionando solo con la clave,
+                           exactamente igual que antes. Es lo que impide dejar
+                           tirado a quien lleva media temporada usando la suya
+                           y todavía no se ha registrado.
+         · con `owner`  -> cerrada. Solo entran su dueño y los invitados que
+                           él haya añadido a `miembros`.
+
+       Reclamar una pizarra = ponerle `owner` a una que no lo tiene, y solo a
+       favor de uno mismo. Una vez puesto no se puede cambiar: ni el dueño
+       puede cedérsela a otro por accidente, ni un invitado puede quedársela.
+
+       Queda un agujero conocido y es inevitable mientras haya periodo de
+       gracia: quien tenga la clave de una pizarra AÚN SIN RECLAMAR puede
+       reclamarla él. Se cierra reclamándolas, no con reglas.
+       ===================================================================== */
+
+    // null si no tiene dueño. `rec` puede ser resource (lo que hay guardado) o
+    // request.resource (lo que se intenta guardar).
+    function duenio(rec)   { return rec == null ? null : rec.data.get('owner', null); }
+    function invitados(rec){ return rec == null ? [] : rec.data.get('miembros', []); }
+    function heredada(rec) { return duenio(rec) == null; }
+
+    function autorizado(rec) {
+      return heredada(rec)
+             || (request.auth != null
+                 && (duenio(rec) == request.auth.uid
+                     || request.auth.uid in invitados(rec)));
+    }
+
+    // La pizarra padre, para las reglas de las subcolecciones. Cuesta UNA
+    // lectura por petición: las llamadas idénticas dentro de la misma petición
+    // se cachean, así que el lote de 400 borrados de limpiarEventos() la paga
+    // una sola vez y no 400.
+    function pizarra(boardId) {
+      return get(/databases/$(database)/documents/pizarras/$(boardId));
+    }
+    function autorizadoEn(boardId) {
+      return !exists(/databases/$(database)/documents/pizarras/$(boardId))
+             || autorizado(pizarra(boardId));
+    }
+
     /* ===== Cuenta de usuario =====
-       Una cuenta es una LISTA de claves de acceso, nada más:
-         usuarios/{uid} = { pizarras: [ {clave, nombre, creada} ] }
-
-       Convive con el acceso por clave de toda la vida, que sigue intacto abajo.
-       Quien entra tecleando su clave no pasa por aquí; la cuenta solo sirve para
-       tener las pizarras a mano y para poner el tope de tres.
-
-       Ojo con lo que esto NO es todavía: la clave sigue siendo lo que da acceso
-       a una pizarra. Un documento de /pizarras aún no sabe de quién es, así que
-       estas reglas no protegen la pizarra, solo la lista. Cerrar ese muro exige
-       marcar cada pizarra con su dueño y dejaría fuera a quien no se haya
-       registrado, así que va aparte y después de avisar. */
+       Una cuenta es una LISTA de claves de acceso:
+         usuarios/{uid} = { pizarras: [ {clave, nombre, creada} ] } */
     match /usuarios/{uid} {
       // Cada uno ve y borra lo suyo y nada más. Sin `list`: la colección entera
       // no se puede pedir ni estando identificado.
@@ -41,60 +83,106 @@ service cloud.firestore {
                             && request.resource.data.pizarras.size() <= 3;
     }
 
-    // Cada pizarra vive en un documento cuyo ID es el hash de la clave de acceso.
-    // Solo quien conoce la clave puede llegar a su documento.
+    /* ===== Índice de correos =====
+       Para invitar al segundo entrenador hace falta traducir su correo a su
+       uid, y desde el navegador no hay forma de preguntarlo: es cosa del SDK
+       de administración. Así que cada usuario publica él mismo su equivalencia
+       al entrar:  correos/{su correo} = { uid: el suyo }.
+
+       Solo se puede escribir la fila de tu PROPIO correo verificado, así que
+       nadie puede colocarse en la fila de otro para recibir sus invitaciones.
+
+       A cambio, cualquiera identificado puede comprobar si un correo concreto
+       tiene cuenta. No se puede listar la colección, hay que acertar el correo
+       entero, pero es una fuga real y consciente: es el precio de invitar por
+       correo sin servidor propio. */
+    match /correos/{correo} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null
+                            && request.auth.token.email_verified == true
+                            && request.auth.token.email.lower() == correo
+                            && request.resource.data.keys().hasOnly(['uid'])
+                            && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && request.auth.token.email.lower() == correo;
+    }
+
+    /* ===== La pizarra ===== */
     match /pizarras/{boardId} {
       // "read" concede get Y list, y list no necesita ningún ID: basta con pedir
       // la colección para descargarse todas las pizarras sin saber ninguna clave.
       // Con solo get hay que conocer el hash exacto, que es lo que la clave protege.
-      allow get: if true;
+      allow get: if autorizado(resource);
       allow list: if false;
+
       // request.resource es null en un delete, así que esta condición también
       // impide borrar la pizarra entera: la app nunca lo hace y nadie debería.
       allow write: if request.resource != null
-                   && request.resource.data.keys().hasOnly(['data', 'writer', 'updatedAt'])
+                   && request.resource.data.keys().hasOnly(['data', 'writer', 'updatedAt', 'owner', 'miembros'])
                    && request.resource.data.data is string
-                   // Suelo: la app guarda con set() SIN merge, así que una
-                   // escritura de un carácter reemplaza la pizarra entera y la
-                   // deja vacía. normalizeState() siembra siempre rivales,
-                   // entrenamientos, tácticas y live, de modo que el estado más
-                   // pequeño que puede generar la app ronda los 2.900
-                   // caracteres: 500 corta el borrado por sobrescritura sin
-                   // acercarse a nada real.
+                   // Suelo: la app guarda con set() —ahora con merge, para no
+                   // barrer `owner` en cada guardado— así que una escritura de
+                   // un carácter reemplaza la pizarra entera y la deja vacía.
+                   // normalizeState() siembra siempre rivales, entrenamientos,
+                   // tácticas y live, de modo que el estado más pequeño que
+                   // puede generar la app ronda los 2.900 caracteres: 500 corta
+                   // el borrado por sobrescritura sin acercarse a nada real.
                    && request.resource.data.data.size() > 500
-                   && request.resource.data.data.size() < 950000;
+                   && request.resource.data.data.size() < 950000
+                   && autorizado(resource)
+                   && duenioCoherente()
+                   && invitadosCoherentes();
+
+      // Heredada: o se deja como está, o se reclama para uno mismo.
+      // Con dueño: el dueño no se toca nunca más.
+      function duenioCoherente() {
+        return heredada(resource)
+               ? (duenio(request.resource) == null
+                  || (request.auth != null && duenio(request.resource) == request.auth.uid))
+               : duenio(request.resource) == duenio(resource);
+      }
+
+      // La lista de invitados solo la cambia el dueño. Un invitado puede
+      // trabajar en la pizarra, pero no meter a nadie más ni echar al dueño.
+      function invitadosCoherentes() {
+        return invitados(request.resource) == invitados(resource)
+               || (request.auth != null && duenio(request.resource) == request.auth.uid);
+      }
     }
-    // Eventos del partido: un documento por evento, dentro de la pizarra. Así el
-    // documento grande no crece sin control y dos dispositivos con la misma clave
-    // pueden registrar a la vez sin pisarse. Para llegar hasta aquí sigue habiendo
-    // que conocer el hash de la clave, igual que para la pizarra.
-    //
-    // Aquí NO se comprueba que la pizarra exista. Sería inútil y rompería cosas:
-    // quien puede escribir un evento ya conoce el hash, y crear el documento
-    // padre le costaría un set(). A cambio, exists() se factura como lectura en
-    // cada evento y llegaría 400 veces en el lote de limpiarEventos(), que tiene
-    // un techo de 20 accesos por petición. Además reemplazarEventosEnNube()
-    // sube los eventos ~600 ms ANTES que el documento de la pizarra, así que
-    // importar una copia de seguridad sobre una pizarra nueva fallaría entera.
+
+    /* ===== Eventos del partido =====
+       Un documento por evento, dentro de la pizarra. Así el documento grande no
+       crece sin control y dos dispositivos autorizados pueden registrar a la vez
+       sin pisarse.
+
+       Antes esto era `allow read: if true`: con la clave se bajaba el partido
+       entero. Ahora manda el dueño de la pizarra padre, igual que arriba.
+
+       Se consulta el padre con get(), que sí cuesta una lectura, pero las
+       llamadas idénticas se cachean dentro de la misma petición: el lote de
+       limpiarEventos() la paga una vez. Y si la pizarra padre todavía no
+       existe se deja pasar, porque reemplazarEventosEnNube() sube los eventos
+       ~600 ms ANTES que el documento de la pizarra: exigirlo rompería la
+       restauración de una copia sobre una pizarra nueva. */
     match /pizarras/{boardId}/eventos/{eventoId} {
-      allow read: if true;
-      allow delete: if true;
+      allow read, delete: if autorizadoEn(boardId);
       // El tope de 30 campos deja sitio a los eventos heredados, que arrastran
       // sin limpiar los campos viejos type, playerId, min y half.
       allow create, update: if request.resource != null
                             && request.resource.data.size() < 30
-                            && request.resource.data.tipo is string;
+                            && request.resource.data.tipo is string
+                            && autorizadoEn(boardId);
     }
-    // Histórico de partidos jugados. Cuelga de la pizarra, no de la raíz: en la
-    // raíz una colección "partidos" sería común a TODAS las claves de acceso y
-    // cualquiera vería el histórico de los demás. Aquí sigue haciendo falta
-    // conocer el hash de la clave, igual que para el resto.
-    // La cabecera es lo único que lee el listado (fecha, equipos y resultado);
-    // el informe entero vive en el subdocumento de abajo y solo se descarga al
-    // abrir un partido concreto.
+
+    /* ===== Histórico de partidos jugados =====
+       Cuelga de la pizarra, no de la raíz: en la raíz una colección "partidos"
+       sería común a TODAS las claves y cualquiera vería el histórico de los
+       demás.
+       La cabecera es lo único que lee el listado (fecha, equipos y resultado);
+       el informe entero vive en el subdocumento de abajo y solo se descarga al
+       abrir un partido concreto. */
     match /pizarras/{boardId}/partidos/{partidoId} {
-      allow read: if true;
-      allow delete: if true;
+      allow read, delete: if autorizadoEn(boardId);
       // Los topes de texto son deliberadamente holgados (300 frente a los ~20
       // caracteres de un nombre real). La app no impone ningún maxlength en sus
       // inputs, y si estas reglas rechazasen el archivado se PERDERÍA el
@@ -114,19 +202,20 @@ service cloud.firestore {
                             && request.resource.data.competicion is string
                             && request.resource.data.competicion.size() <= 300
                             && request.resource.data.lugar is string
-                            && request.resource.data.lugar.size() <= 300;
+                            && request.resource.data.lugar.size() <= 300
+                            && autorizadoEn(boardId);
 
       // El id siempre es literalmente "informe": archivar(), borrar() y abrir()
       // no usan ningún otro. Fijarlo impide colgar documentos arbitrarios de un
       // partido para usar la pizarra de almacén ajeno.
       match /detalle/{docId} {
-        allow read: if true;
-        allow delete: if true;
+        allow read, delete: if autorizadoEn(boardId);
         allow create, update: if docId == 'informe'
                               && request.resource != null
                               && request.resource.data.keys().hasOnly(['datos'])
                               && request.resource.data.datos is string
-                              && request.resource.data.datos.size() < 900000;
+                              && request.resource.data.datos.size() < 900000
+                              && autorizadoEn(boardId);
       }
     }
   }

@@ -403,6 +403,11 @@
   <div id="toast" class="toast">Cambios guardados</div>
   <div id="undoToast" class="undo-toast"></div>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <!-- Auth hace falta aunque la app no tenga pantalla de acceso propia: es lo
+       que adjunta el token a cada escritura de Firestore. Sin él, una pizarra
+       con dueño rechazaría a su propio dueño. Quien entra por clave a una
+       pizarra heredada no lo usa para nada. -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="app.js"></script>
   <!-- Después de app.js: leen state, boardRef y sus ayudantes. -->

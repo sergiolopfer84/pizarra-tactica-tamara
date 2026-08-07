@@ -1987,7 +1987,12 @@ renderAll();
 /* ===== Sincronización en la nube (Firebase Firestore) ===== */
 const FIREBASE_CONFIG={apiKey:'AIzaSyBrysK7UDFDW_XpY1tSFnrQSX9rD8mbrrQ',authDomain:'pizarra-tamara-2026.firebaseapp.com',projectId:'pizarra-tamara-2026',storageBucket:'pizarra-tamara-2026.firebasestorage.app',messagingSenderId:'886197824457',appId:'1:886197824457:web:4beab9509451daac1c9618'};
 const CLIENT_ID='c'+Math.random().toString(36).slice(2)+Date.now().toString(36);
-let db=null,boardRef=null,keyHash='',saveTimer=null,unsubscribe=null;
+let db=null,auth=null,boardRef=null,keyHash='',saveTimer=null,unsubscribe=null;
+/* Dueño de la pizarra abierta, tal y como lo tiene el servidor.
+   null = heredada: se entra solo con la clave, como se ha hecho siempre.
+   Con valor = cerrada: solo su dueño y sus invitados. Se refresca en cada
+   snapshot porque puede cambiar desde otro dispositivo (al reclamarla). */
+let boardOwner=null;
 /* Declaradas aquí, ANTES del try: `nubeActiva=true` se asigna dentro de él, y
    con la declaración veinte líneas más abajo caía en la zona muerta del `let`.
    Resultado: ReferenceError en cada arranque, que el catch camuflaba de
@@ -1999,6 +2004,9 @@ let nubePend=0,syncOk=false,nubeActiva=false;
 try{
   if(typeof firebase!=='undefined'&&FIREBASE_CONFIG.projectId!=='__PROJECT'+'_ID__'){
     firebase.initializeApp(FIREBASE_CONFIG);
+    // Si el SDK de Auth no llegó a cargar (bloqueador, red a medias), se sigue
+    // adelante sin él: las pizarras heredadas no lo necesitan.
+    try{ auth=firebase.auth?firebase.auth():null }catch(e){ auth=null }
     db=firebase.firestore();
     db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
     nubeActiva=true;
@@ -2145,9 +2153,34 @@ function pushToCloud(){
     showToast('Los datos superan el límite de la nube y ya no se sincronizan. Elimina alguna foto de jugador.',6000);
     return
   }
-  boardRef.set({data:json,writer:CLIENT_ID,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+  const carga={data:json,writer:CLIENT_ID,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  /* Reclamar la pizarra, solo en el caso seguro.
+     `udt-owner` lo deja la pantalla de cuenta al abrir una pizarra DESDE la
+     lista del usuario. Es lo que distingue "esta pizarra es mía" de "he
+     tecleado una clave que me han pasado": sin esa distinción, el ayudante que
+     abriese la clave compartida antes que el entrenador se quedaría con la
+     pizarra y dejaría fuera al jefe.
+     Solo se pone si no hay dueño ya; las reglas además exigen que coincida con
+     el usuario de la sesión, así que esto no puede reclamar a nombre de otro. */
+  const uid=auth&&auth.currentUser&&auth.currentUser.uid;
+  if(uid&&!boardOwner&&localStorage.getItem('udt-owner')===uid)carga.owner=uid;
+  /* merge:true es obligatorio desde que existe `owner`. Con el set() de antes,
+     que reemplazaba el documento entero, el primer guardado tras reclamar una
+     pizarra habría borrado el campo `owner` y la habría dejado abierta otra
+     vez, en silencio. `data` se sigue reemplazando entero, que es lo que se
+     quiere: merge solo protege los campos que la app no manda. */
+  boardRef.set(carga,{merge:true})
     .then(()=>setSync(true))
-    .catch(e=>{console.warn('Error al guardar en la nube:',e);setSync(false,'No se pudo guardar');showToast('No se han podido guardar los cambios en la nube. Revisa la conexión.',4000)})
+    .catch(e=>{
+      console.warn('Error al guardar en la nube:',e);
+      if(e&&e.code==='permission-denied'){
+        setSync(false,'Sin permiso');
+        showToast('Esta pizarra pertenece a otra cuenta. Pide a su dueño que te invite desde "Tus pizarras".',7000)
+      }else{
+        setSync(false,'No se pudo guardar');
+        showToast('No se han podido guardar los cambios en la nube. Revisa la conexión.',4000)
+      }
+    })
 }
 function applyRemote(json){
   let nuevo;
@@ -2198,6 +2231,9 @@ async function connectBoard(key){
     // el servidor. Mientras sea true no sabemos si la nube tiene datos, así que
     // no se toca: es justo el caso en el que antes se perdía la plantilla.
     if(s.metadata.fromCache)return;
+    // Puede cambiar en cualquier momento: reclamarla desde otro dispositivo se
+    // ve aquí. Se refresca en TODOS los snapshots, no solo en el primero.
+    boardOwner=s.exists?(s.data().owner||null):null;
     if(!cloudReady){
       cloudReady=true;
       const remoto=s.exists&&s.data().data;
@@ -2220,7 +2256,16 @@ async function connectBoard(key){
     const d=s.data();
     if(d.writer===CLIENT_ID||!d.data)return;
     applyRemote(d.data)
-  },e=>{console.warn('Error de sincronización:',e);cloudReady=false;setSync(false,'Sin sincronizar')})
+  },e=>{
+    console.warn('Error de sincronización:',e);
+    cloudReady=false;
+    // Acertar la clave ya no basta si la pizarra tiene dueño. Sin este aviso el
+    // usuario solo vería "Sin sincronizar" y creería que es cosa de la red.
+    if(e&&e.code==='permission-denied'){
+      setSync(false,'Sin permiso');
+      showToast('Esta pizarra pertenece a otra cuenta. Entra con ella, o pide a su dueño que te invite.',8000)
+    }else setSync(false,'Sin sincronizar')
+  })
 }
 $('#authForm').onsubmit=async e=>{
   e.preventDefault();
