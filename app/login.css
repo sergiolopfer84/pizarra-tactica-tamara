@@ -142,10 +142,30 @@ input:focus{border-color:var(--green-2);box-shadow:0 0 0 3px rgba(106,198,71,.22
 /* ===== Lista de pizarras ===== */
 .lista{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:10px}
 .lista:empty{display:none}
-/* La fila entera en flex: el botón de quitar va al lado de la pizarra, no
-   debajo. El <li> por defecto es display:list-item y los apilaba. */
-.lista li{display:flex;align-items:center;gap:4px}
-.lista li>.pizarra{flex:1;min-width:0}
+/* Cada elemento son dos filas: la pizarra con su botón de quitar, y debajo la
+   clave. El <li> por defecto es display:list-item y lo apilaba todo. */
+.lista li{display:block}
+.lista li>.fila{display:flex;align-items:center;gap:4px}
+.lista li>.fila>.pizarra{flex:1;min-width:0}
+
+/* La clave, discreta pero siempre visible: es lo que hay que teclear en otro
+   dispositivo y lo que se le pasa al segundo entrenador. */
+.clave-fila{
+  display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+  padding:7px 13px 0;font-size:11.5px;color:var(--muted);
+}
+.clave-fila code{
+  font:600 12px ui-monospace,SFMono-Regular,Consolas,monospace;
+  color:var(--ink);background:#f2f1f5;
+  border-radius:6px;padding:3px 7px;
+  /* Una clave larga no debe ensanchar la tarjeta en un móvil estrecho. */
+  word-break:break-all;
+}
+.copiar{
+  border:0;background:none;padding:6px 2px;
+  color:#2f6b19;font:700 11.5px 'DM Sans',sans-serif;cursor:pointer;
+}
+.copiar:hover{text-decoration:underline}
 
 .pizarra{
   display:flex;align-items:center;gap:13px;

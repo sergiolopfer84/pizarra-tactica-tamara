@@ -283,7 +283,41 @@ async function pintarPizarras(){
     quitar.textContent='×';
     quitar.onclick=()=>desvincular(p.clave,nombre);
 
-    li.append(btn,quitar);
+    /* La clave, a la vista.
+       Al crear una pizarra desde aquí se genera una clave al azar y se entra
+       directamente, así que el usuario nunca llegaba a verla: solo aparecía
+       dentro del aviso de QUITAR la pizarra, o sea que había que intentar
+       borrarla para enterarse de cuál era la suya. La pizarra no se perdía
+       —está guardada en la cuenta— pero sin la clave no se puede abrir en un
+       dispositivo sin sesión ni pasársela a nadie. */
+    const fila=document.createElement('div');
+    fila.className='fila';
+    fila.append(btn,quitar);
+
+    const pieClave=document.createElement('div');
+    pieClave.className='clave-fila';
+    const cod=document.createElement('code');
+    cod.textContent=p.clave;
+    const copiar=document.createElement('button');
+    copiar.type='button';copiar.className='copiar';
+    copiar.textContent='Copiar';
+    copiar.setAttribute('aria-label','Copiar la clave de '+nombre);
+    copiar.onclick=async()=>{
+      try{
+        await navigator.clipboard.writeText(p.clave);
+        copiar.textContent='Copiada';
+      }catch(e){
+        // Sin permiso de portapapeles (o sin HTTPS): al menos se deja
+        // seleccionada para copiarla a mano.
+        copiar.textContent='Selecciónala';
+        const r=document.createRange();r.selectNodeContents(cod);
+        const s=getSelection();s.removeAllRanges();s.addRange(r);
+      }
+      setTimeout(()=>{copiar.textContent='Copiar'},2000);
+    };
+    pieClave.append(document.createTextNode('Clave: '),cod,copiar);
+
+    li.append(fila,pieClave);
     ul.append(li);
   }
 
