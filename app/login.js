@@ -209,6 +209,16 @@ let usuario=null,pizarras=[];
 
 const refUsuario=()=>db.collection('usuarios').doc(usuario.uid);
 
+async function cargarPizarras(){
+  const d=await refUsuario().get();
+  pizarras=(d.exists&&Array.isArray(d.data().pizarras))?d.data().pizarras:[];
+}
+/* merge:true para no barrer nada más del documento del usuario si algún día
+   guarda algo aparte de la lista. */
+async function guardarPizarras(){
+  await refUsuario().set({pizarras},{merge:true});
+}
+
 /* Nombre y escudo salen de la propia pizarra, no de lo que se guardó el día que
    se añadió: si el entrenador le cambia el nombre al club, esta lista tiene que
    enterarse. Si la pizarra no se puede leer se cae al nombre guardado. */
