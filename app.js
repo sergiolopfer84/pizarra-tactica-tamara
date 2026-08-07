@@ -67,6 +67,7 @@ const EVENTOS_EQUIPO=[
   {t:'dos_por_uno',   n:'2x1 con centro al área',      ic:'👥', zona:true, ayuda:'Carril de origen'},
   {t:'llegada_banda', n:'Llegada por banda',           ic:'↗',  zona:true, directo:true},
   {t:'duelo_ganado',  n:'Duelo ganado',                ic:'💪', zona:true, directo:true},
+  {t:'duelo_perdido', n:'Duelo perdido',               ic:'🥊', zona:true, directo:true},
   {t:'ocasion_conc',  n:'Ocasión concedida',           ic:'❗', zona:true, directo:true},
   {t:'corner_favor',  n:'Córner a favor',              ic:'⛳', zona:false, directo:true},
   {t:'corner_contra', n:'Córner en contra',            ic:'🚩', zona:false, directo:true}
@@ -1116,28 +1117,41 @@ function pedirZonaEnEquipo(def){
 $('#teamFab').onclick=e=>{e.stopPropagation();$('#teamMenu').classList.contains('hidden')?openTeamMenu():closeTeamMenu()};
 
 /* ===== Modo en directo: pantalla completa =====
-   Dos pantallas y nada más. La 1 es la rejilla de ocho eventos; la 2, el campo
+   Dos pantallas y nada más. La 1 es la rejilla de once eventos; la 2, el campo
    en 3×3. Registrar cuesta dos pulsaciones —evento → cuadrante— y ninguna
    espera a la red: el evento ya está en memoria y en el navegador antes de
    salir hacia la nube (ver cloudSaveEvent), así que la confirmación se pinta al
    instante aunque no haya cobertura.
    Los córners no tienen cuadrante y se quedan en una sola pulsación, por eso
-   viven en su propia fila, separados de los ocho de dos pasos: pulsar uno por
+   viven en su propia fila, separados de los once de dos pasos: pulsar uno por
    error y que se guarde sin preguntar nada sería el fallo más caro de todos. */
-const DIRECTO_ATAQUE=['llegada_banda','llegada_area','tiro_puerta','gol'];
-const DIRECTO_DEFENSA=['recuperacion','perdida','duelo_ganado','ocasion_conc'];
+/* Las dos columnas no separan ataque de defensa, sino lo bueno de lo malo: a la
+   izquierda en verde lo que suma para nosotros, a la derecha en rojo lo que
+   resta. Una recuperación o un duelo ganado son buenas noticias aunque nazcan
+   de una acción defensiva, y pintarlas de rojo hacía dudar antes de pulsar.
+   Las columnas ya no tienen la misma altura de lista: cada una reparte su hueco
+   por su cuenta (ver lmPintarRejilla). */
+const DIRECTO_BIEN=['foul_won','duelo_ganado','recuperacion','llegada_banda','llegada_area','tiro_puerta','gol'];
+const DIRECTO_MAL=['foul_made','duelo_perdido','perdida','ocasion_conc'];
 const DIRECTO_CORNERS=['corner_favor','corner_contra'];
+/* Aquí todo se ubica en el campo menos los córners: el lado ya va dentro del
+   propio tipo y no aporta nada preguntar por el cuadrante. Se decide por esta
+   lista y no por `zona` del catálogo porque las faltas siguen guardándose sin
+   cuadrante desde el menú del jugador, donde lo que importa es quién la hizo. */
+const DIRECTO_SIN_ZONA=DIRECTO_CORNERS;
 // Nombres cortos: en la rejilla mandan el tamaño de letra y la legibilidad al
 // sol. El nombre largo del catálogo se sigue usando en el informe.
 const DIRECTO_NOM={llegada_banda:'Llegada por banda',llegada_area:'Entrada al área',tiro_puerta:'Tiro',gol:'GOL',
-  recuperacion:'Recuperación',perdida:'Pérdida',duelo_ganado:'Duelo ganado',ocasion_conc:'Ocasión concedida',
+  recuperacion:'Recuperación',perdida:'Pérdida',duelo_ganado:'Duelo ganado',duelo_perdido:'Duelo perdido',
+  ocasion_conc:'Ocasión concedida',foul_won:'Falta recibida',foul_made:'Falta cometida',
   corner_favor:'Córner a favor',corner_contra:'Córner en contra'};
 /* Los iconos del catálogo valen para una lista pequeña, pero los círculos de
-   color de recuperación y pérdida se pierden encima de un botón ya coloreado.
-   Aquí se cambian por dos signos monocromos que heredan el blanco del texto y
-   se leen como pareja: ganamos el balón / lo perdemos. En el informe siguen
-   saliendo los del catálogo, que es donde el color sí ayuda. */
-const DIRECTO_IC={recuperacion:'⊕',perdida:'⊖',ocasion_conc:'△'};
+   color de recuperación, pérdida y faltas se pierden encima de un botón ya
+   coloreado. Aquí se cambian por signos monocromos que heredan el blanco del
+   texto y se leen por parejas: ganamos el balón / lo perdemos, falta para
+   nosotros / falta nuestra. En el informe siguen saliendo los del catálogo,
+   que es donde el color sí ayuda. */
+const DIRECTO_IC={recuperacion:'⊕',perdida:'⊖',ocasion_conc:'△',foul_won:'✚',foul_made:'✖'};
 const DIRECTO_ZONA_MS=8000,   // sin tocar nada, la pantalla de zonas se cierra sola
       DIRECTO_REBOTE=300;     // dos toques más juntos que esto son el mismo dedo
 
@@ -1225,8 +1239,12 @@ function lmBotonHTML(t,clase){
   return `<button type="button" class="lm-ev ${clase}${t==='gol'?' gol':''}" data-ev="${t}"><i>${DIRECTO_IC[t]||d.ic||''}</i><span>${esc(DIRECTO_NOM[t]||d.n||t)}</span></button>`
 }
 function lmPintarRejilla(){
-  // Fila a fila y alternando columna: ataque a la izquierda, defensa a la derecha.
-  $('#lmGrid').innerHTML=[0,1,2,3].map(i=>lmBotonHTML(DIRECTO_ATAQUE[i],'of')+lmBotonHTML(DIRECTO_DEFENSA[i],'def')).join('');
+  /* Dos columnas independientes, no una rejilla de filas emparejadas: la verde
+     tiene siete botones y la roja cuatro, así que cada una se reparte su altura
+     por su cuenta. Emparejando filas quedarían tres huecos vacíos en la roja. */
+  $('#lmGrid').innerHTML=
+    `<div class="lm-col">${DIRECTO_BIEN.map(t=>lmBotonHTML(t,'bien')).join('')}</div>`+
+    `<div class="lm-col">${DIRECTO_MAL.map(t=>lmBotonHTML(t,'mal')).join('')}</div>`;
   $('#lmCorners').innerHTML=DIRECTO_CORNERS.map(t=>{
     const d=EVENTO_DEF[t]||{};
     return `<button type="button" class="lm-corner" data-ev="${t}"><i>${d.ic||''}</i><span>${esc(DIRECTO_NOM[t])}</span></button>`
@@ -1268,7 +1286,7 @@ function lmCampoHTML(){
 
 function lmPulsarEvento(t){
   const def=EVENTO_DEF[t];if(!def)return;
-  if(def.zona===false){lmRegistrar(t,null);return}   // córner: se guarda ya, con su minuto
+  if(DIRECTO_SIN_ZONA.includes(t)){lmRegistrar(t,null);return}   // córner: se guarda ya, con su minuto
   lmAbrirZonas(t)
 }
 function lmAbrirZonas(t){
@@ -1408,13 +1426,16 @@ const METRICAS=[
   {id:'asistencia',   g:'Ataque',    n:'Asistencias',                 c:'verde', f:e=>e.tipo==='asistencia'},
   {id:'regate_ok',    g:'Ataque',    n:'Regates exitosos',            c:'verde', f:e=>e.tipo==='regate_ok'},
   {id:'regate_fallo', g:'Ataque',    n:'Regates fallidos',            c:'rojo',  f:e=>e.tipo==='regate_fallo'},
+  {id:'foul_won',     g:'Ataque',    n:'Faltas recibidas',            c:'verde', f:e=>e.tipo==='foul_won'},
   {id:'perdida',      g:'Defensa',   n:'Pérdidas (todas)',            c:'rojo',  f:e=>e.tipo==='perdida'},
   {id:'perdida_def',  g:'Defensa',   n:'Pérdidas en inicio de juego', c:'rojo',  f:e=>e.tipo==='perdida'&&zonaFranja(e.zona)==='def'},
   {id:'perdida_med',  g:'Defensa',   n:'Pérdidas en zona media',      c:'rojo',  f:e=>e.tipo==='perdida'&&zonaFranja(e.zona)==='med'},
   {id:'perdida_ata',  g:'Defensa',   n:'Pérdidas en campo rival',     c:'rojo',  f:e=>e.tipo==='perdida'&&zonaFranja(e.zona)==='ata'},
   {id:'recuperacion', g:'Defensa',   n:'Recuperaciones',              c:'verde', f:e=>e.tipo==='recuperacion'},
   {id:'duelo_ganado', g:'Defensa',   n:'Duelos ganados',              c:'verde', f:e=>e.tipo==='duelo_ganado'},
+  {id:'duelo_perdido',g:'Defensa',   n:'Duelos perdidos',             c:'rojo',  f:e=>e.tipo==='duelo_perdido'},
   {id:'ocasion_conc', g:'Defensa',   n:'Ocasiones concedidas',        c:'rojo',  f:e=>e.tipo==='ocasion_conc'},
+  {id:'foul_made',    g:'Defensa',   n:'Faltas cometidas',            c:'rojo',  f:e=>e.tipo==='foul_made'},
   {id:'pase_fallido', g:'Defensa',   n:'Pases fallidos',              c:'rojo',  f:e=>e.tipo==='pase_fallido'},
   {id:'error_despeje',g:'Defensa',   n:'Errores en despeje',          c:'rojo',  f:e=>e.tipo==='error_despeje'},
   {id:'llegada_rival',g:'Defensa',   n:'Llegadas del rival',          c:'rojo',  f:e=>e.tipo==='llegada_rival'},
@@ -1628,8 +1649,8 @@ function renderTeamPanel(){
   const n=t=>ev.filter(e=>e.tipo===t).length;
   const nc=t=>todos.filter(e=>e.tipo===t).length;
   const perdFranja=f=>ev.filter(e=>e.tipo==='perdida'&&zonaFranja(e.zona)===f).length;
-  const ataque=[['Llegadas por banda',n('llegada_banda')],['Entradas al área',n('llegada_area')],['Tiros',n('tiro_puerta')],['Centros con remate',n('centro_remate')],['2x1 con centro al área',n('dos_por_uno')],['Ataques a la profundidad',n('profundidad')]];
-  const defensa=[['Recuperaciones',n('recuperacion')],['Duelos ganados',n('duelo_ganado')],['Ocasiones concedidas',n('ocasion_conc')],['Pérdidas en inicio de juego',perdFranja('def')],['Pérdidas en zona media',perdFranja('med')],['Llegadas del rival',n('llegada_rival')]];
+  const ataque=[['Llegadas por banda',n('llegada_banda')],['Entradas al área',n('llegada_area')],['Tiros',n('tiro_puerta')],['Centros con remate',n('centro_remate')],['2x1 con centro al área',n('dos_por_uno')],['Ataques a la profundidad',n('profundidad')],['Faltas recibidas',n('foul_won')]];
+  const defensa=[['Recuperaciones',n('recuperacion')],['Duelos ganados',n('duelo_ganado')],['Duelos perdidos',n('duelo_perdido')],['Ocasiones concedidas',n('ocasion_conc')],['Pérdidas en inicio de juego',perdFranja('def')],['Pérdidas en zona media',perdFranja('med')],['Llegadas del rival',n('llegada_rival')],['Faltas cometidas',n('foul_made')]];
   const llegadas=n('llegada_area'),llegadasR=n('llegada_rival'),tiros=n('tiro_puerta');
   const cf=nc('corner_favor'),cc=nc('corner_contra'),ct=cf+cc;
   const dominio=llegadasR?(llegadas/llegadasR).toFixed(2).replace('.',','):(llegadas?'—':'0');
@@ -1651,7 +1672,9 @@ function renderTeamPanel(){
    porcentaje: en un partido de 40 acciones un porcentaje suelto engaña. */
 const FILAS_PARTE=[
   ['llegada_banda','Llegadas por banda'],['llegada_area','Entradas al área'],['tiro_puerta','Tiros'],['gol','Goles'],
-  ['recuperacion','Recuperaciones'],['duelo_ganado','Duelos ganados'],['perdida','Pérdidas'],['ocasion_conc','Ocasiones concedidas'],
+  ['recuperacion','Recuperaciones'],['duelo_ganado','Duelos ganados'],['duelo_perdido','Duelos perdidos'],
+  ['perdida','Pérdidas'],['ocasion_conc','Ocasiones concedidas'],
+  ['foul_won','Faltas recibidas'],['foul_made','Faltas cometidas'],
   ['corner_favor','Córners a favor'],['corner_contra','Córners en contra']
 ];
 function renderHalvesPanel(){

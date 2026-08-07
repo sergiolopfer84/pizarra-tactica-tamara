@@ -291,8 +291,9 @@ function pintarDetalle(cab,info){
 
   const ataque=[['Llegadas por banda',n('llegada_banda')],['Entradas al área',n('llegada_area')],['Tiros',n('tiro_puerta')],
                 ['Centros con remate',n('centro_remate')],['Ataques a la profundidad',n('profundidad')],['Goles',n('gol')]];
-  const defensa=[['Recuperaciones',n('recuperacion')],['Duelos ganados',n('duelo_ganado')],['Pérdidas',n('perdida')],
-                 ['Ocasiones concedidas',n('ocasion_conc')],['Llegadas del rival',n('llegada_rival')]];
+  const defensa=[['Recuperaciones',n('recuperacion')],['Duelos ganados',n('duelo_ganado')],['Duelos perdidos',n('duelo_perdido')],
+                 ['Pérdidas',n('perdida')],['Ocasiones concedidas',n('ocasion_conc')],['Llegadas del rival',n('llegada_rival')],
+                 ['Faltas recibidas',n('foul_won')],['Faltas cometidas',n('foul_made')]];
   const cf=nc('corner_favor'),cc=nc('corner_contra');
 
   const goles=(info.goles||[]).slice().sort((a,b)=>(a.min||999)-(b.min||999));

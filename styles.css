@@ -686,20 +686,23 @@ body.lm-on .undo-toast{z-index:420}
 .lm-p1[hidden],.lm-p2[hidden]{display:none}
 .lm-p1{grid-template-rows:minmax(0,1fr) auto;gap:12px}
 
-/* Rejilla de eventos: 2 columnas × 4 filas. Ataque a la izquierda (verde),
-   defensa a la derecha (rojo), y el gol destacado sobre los dos bloques.
-   Las filas son minmax(0,1fr), no minmax(96px,1fr): así reparten TODO el hueco
-   disponible —que en vertical siempre da de sobra para los 96 px— y en una
-   pantalla corta encogen en vez de salirse por abajo y perder un botón. */
-.lm-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,minmax(0,1fr));gap:12px;min-height:0}
+/* Rejilla de eventos: 2 columnas. Lo bueno a la izquierda (verde) y lo malo a la
+   derecha (rojo), con el gol destacado sobre los dos bloques.
+   Las columnas no llevan el mismo número de botones (siete y cuatro), así que
+   cada una es un flex propio y reparte SU hueco: emparejar filas dejaría tres
+   huecos muertos en la roja. Los botones son flex:1 sin base fija, para que en
+   una pantalla corta encojan en vez de salirse por abajo y perder uno. */
+.lm-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:12px;min-height:0}
+.lm-col{display:flex;flex-direction:column;gap:12px;min-height:0}
+.lm-col>.lm-ev{flex:1 1 0}
 .lm-ev{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-       border:0;border-radius:16px;cursor:pointer;color:#fff;padding:8px;min-height:60px;
-       font:800 clamp(15px,2.4vh,22px) Manrope,sans-serif;line-height:1.15;text-align:center;
+       border:0;border-radius:16px;cursor:pointer;color:#fff;padding:8px;min-height:52px;
+       font:800 clamp(14px,2.1vh,21px) Manrope,sans-serif;line-height:1.15;text-align:center;
        box-shadow:inset 0 -4px 0 #0003;transition:transform .06s;overflow:hidden}
-.lm-ev i{font-size:clamp(18px,3vh,28px);font-style:normal;line-height:1}
+.lm-ev i{font-size:clamp(17px,2.6vh,27px);font-style:normal;line-height:1}
 .lm-ev:active{transform:scale(.97);filter:brightness(1.25)}
-.lm-ev.of{background:#146c43}
-.lm-ev.def{background:#8a2733}
+.lm-ev.bien{background:#146c43}
+.lm-ev.mal{background:#8a2733}
 .lm-ev.gol{background:linear-gradient(160deg,#f5b301,#e07a00);color:#221500;box-shadow:inset 0 -4px 0 #0000002e,0 0 0 3px #ffd16659}
 .lm-ev.gol i{font-size:clamp(20px,3.4vh,32px)}
 
@@ -798,7 +801,7 @@ body.lm-on .undo-toast{z-index:420}
   .lm-mid{gap:8px}
   .lm-team{max-width:132px;padding:9px 10px;gap:6px;letter-spacing:0}
   .lm-ico{width:40px;height:40px}
-  .lm-grid{gap:10px}
+  .lm-grid,.lm-col{gap:10px}
   .lm-corners{gap:10px;padding-top:10px}
   .lm-corner{gap:6px}
   .lmz-close{width:46px;height:46px;font-size:24px}
@@ -814,11 +817,14 @@ body.lm-on .undo-toast{z-index:420}
 }
 .lm.paused .lm-minute{color:#f0a92c;background:#f0a92c26}
 
-/* Pantallas bajas: se aprieta el aire y la fila de córners, nunca los ocho
-   botones de registro, que son los que se pulsan. */
+/* Pantallas bajas: se aprieta el aire y la fila de córners, nunca los once
+   botones de registro, que son los que se pulsan. La columna verde lleva siete,
+   así que aquí manda su alto mínimo: se baja antes que dejar uno fuera. */
 @media (max-height:720px){
   .lm-p1,.lm-p2{padding:8px}
   .lm-p1{gap:10px}
+  .lm-grid,.lm-col{gap:8px}
+  .lm-ev{min-height:44px}
   .lm-corners{gap:10px;padding-top:10px}
   .lm-corner{min-height:54px}
   .lm-bottom{padding:8px}
@@ -828,8 +834,9 @@ body.lm-on .undo-toast{z-index:420}
 /* Móvil en apaisado: aquí no hay 96 px por fila para nadie. Se reparte lo que
    haya y se quitan los iconos antes que perder un botón fuera de pantalla. */
 @media (max-height:480px){
-  .lm-ev{font-size:13px;gap:2px}
+  .lm-ev{font-size:13px;gap:2px;min-height:32px}
   .lm-ev i{display:none}
+  .lm-grid,.lm-col{gap:6px}
   .lm-corner{min-height:44px;font-size:12px}
   .lm-undo{min-height:42px;font-size:13px}
   .lm-corners{padding-top:8px}
