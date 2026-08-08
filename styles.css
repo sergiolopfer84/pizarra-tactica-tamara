@@ -88,25 +88,15 @@ body.colocando .pitch-slot{border-color:#ffffffd9;background:#00000042}
    esa misma columna estrecha. El desplegable salía cortado —"Dispo…"— y la
    etiqueta partida en dos líneas.
    Seis columnas para que cada campo pida lo suyo: nombre 4 y dorsal 2 arriba,
-   posición y estado a mitades debajo. Va con #playerForm delante para ganarle
-   en especificidad a la regla de móvil de .form-grid sin tocar los otros dos
-   formularios, que siguen con la rejilla de siempre. */
+   posición y estado a mitades debajo. Cuelga de #playerForm para no tocar los
+   otros dos formularios que comparten .form-grid, donde "Equipo local + Goles"
+   sí quiere una columna estrecha.
+   Esto es solo cosa del escritorio: por debajo de 680 px .form-grid ya se
+   apilaba en una sola columna desde antes, y ahí Estado nunca estuvo cortado. */
 #playerForm .form-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
 #playerForm .fg-nombre{grid-column:span 4}
 #playerForm .fg-dorsal{grid-column:span 2}
 #playerForm .fg-pos,#playerForm .fg-estado{grid-column:span 3}
-@media(max-width:680px){
-  /* En móvil no caben tres campos por fila: dorsal y posición comparten fila y
-     el estado se queda con la suya entera, en vez de dejar un hueco muerto. */
-  #playerForm .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  #playerForm .fg-nombre,#playerForm .fg-estado{grid-column:span 2}
-  #playerForm .fg-dorsal,#playerForm .fg-pos{grid-column:span 1}
-}
-/* Sin esto, en una pantalla baja —un portátil, o el móvil en horizontal— el
-   diálogo se corta por abajo y "Guardar jugador" queda fuera de alcance, sin
-   forma de llegar a él. El navegador ya limita el alto de un <dialog>; lo que
-   faltaba era poder rodarlo. dvh además descuenta la barra del navegador. */
-dialog{max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overflow:auto}
 
 /* Ficha del jugador en modo lectura */
 .pc-body{padding:20px 24px}
@@ -157,9 +147,9 @@ dialog{max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overflow:aut
 
 /* ===== Ficha de jugador: la cabecera y los botones quedan siempre a la vista ===== */
 dialog[open]{display:flex;max-height:92vh;max-height:92dvh;overflow:hidden}
-#playerForm,#callForm,#clubForm,#goalForm,#trainingForm,#trainingShareForm{display:flex;flex-direction:column;width:100%;min-height:0}
+#playerForm,#callForm,#clubForm,#goalForm,#trainingForm,#trainingShareForm,#playerCardBox{display:flex;flex-direction:column;width:100%;min-height:0}
 .modal-head,.photo-edit,.modal-actions{flex:0 0 auto}
-.form-grid,.modal-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.form-grid,.modal-scroll,.pc-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .modal-actions{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
 
 /* ===== Ajustes de móvil ===== */

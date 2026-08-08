@@ -263,6 +263,10 @@
        Es de lectura, y editar es un paso aparte y voluntario: la mayoría de las
        veces se entra a mirar el dorsal o una observación, no a cambiar nada. -->
   <dialog id="playerCardDialog">
+   <!-- Todo dentro de UN solo hijo, como el resto de diálogos: dialog[open] es
+        un flex, así que varios hijos sueltos se colocarían en fila y la ficha
+        saldría con la cabecera, los datos y los botones en tres columnas. -->
+   <div class="modal-box" id="playerCardBox">
     <div class="modal-head">
       <div><span class="eyebrow" id="pcPuesto">JUGADOR</span><h2 id="pcNombre">Jugador</h2></div>
       <button class="close-card" type="button" aria-label="Cerrar">×</button>
@@ -283,6 +287,7 @@
       <button class="btn secondary close-card" type="button">Cerrar</button>
       <button class="btn primary" type="button" id="pcEditar">Editar ficha</button>
     </div>
+   </div>
   </dialog>
 
   <dialog id="playerDialog">
