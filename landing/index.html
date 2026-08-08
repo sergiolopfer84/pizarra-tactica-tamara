@@ -57,7 +57,9 @@
           <!-- Puente hacia la app que YA funciona hoy con clave de acceso. En
                cuanto exista el registro real, este enlace se puede quitar sin
                tocar nada más. -->
-          <a class="btn btn-ghost btn-lg" href="/">Ya tengo clave de acceso</a>
+          <!-- ?clave es lo que le dice a la raíz que NO devuelva aquí: sin él, la
+               app ve que no hay clave guardada y rebota a esta misma página. -->
+          <a class="btn btn-ghost btn-lg" href="/?clave">Ya tengo clave de acceso</a>
         </div>
 
         <p class="cta-note">Empezar es gratis. Sin instalar nada y sin tarjeta.</p>

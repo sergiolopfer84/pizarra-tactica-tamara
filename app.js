@@ -2333,7 +2333,9 @@ $('#importFile').onchange=e=>{
 };
 $('#changeKey').onclick=()=>{
   if(confirm('¿Cambiar de clave? Tus datos seguirán guardados en la nube bajo la clave actual.')){
-    localStorage.removeItem('udt-key');location.reload()
+    // Con ?clave, y no un reload a secas: sin clave guardada el desvío del
+    // <head> mandaría a la landing justo a quien acaba de pedir teclear otra.
+    localStorage.removeItem('udt-key');location.replace('/?clave')
   }
 };
 (function boot(){

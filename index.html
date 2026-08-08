@@ -8,6 +8,28 @@
        carga app.js, para que ni el club ni el nombre del producto queden fijos
        aquí. Este valor solo se ve el instante previo. -->
   <title>Dirige Tu Club</title>
+  <!-- Desvío a la landing, ANTES de cargar nada más: quien entra por primera vez
+       en dirigetuclub.es tiene que ver el producto, no un cuadro pidiéndole una
+       clave que todavía no tiene.
+       No se hace moviendo la app a otra ruta porque el manifest arranca en "./"
+       y hay entrenadores con la pizarra instalada en el móvil: la raíz tiene que
+       seguir siendo la app para ellos. Se decide por estado, no por URL:
+         · con clave guardada  -> es su pizarra de siempre, entra directo
+         · ?clave              -> viene de "Ya tengo clave" o de cambiar de clave
+         · si no               -> landing
+       Va aquí arriba, en línea y con replace(), para que no llegue a pintarse la
+       pizarra un instante ni quede una entrada basura en el historial. Si
+       localStorage está bloqueado se queda en la app: ante la duda, el que ya es
+       usuario pesa más que el visitante. -->
+  <script>
+    (function(){
+      try{
+        if(location.search.indexOf('clave')>=0)return;
+        if(localStorage.getItem('udt-key'))return;
+        location.replace('/landing/');
+      }catch(_){}
+    })();
+  </script>
   <link rel="icon" type="image/png" sizes="192x192" href="logo/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="logo/icon-512.png" />
   <link rel="apple-touch-icon" href="logo/apple-touch-icon.png" />
