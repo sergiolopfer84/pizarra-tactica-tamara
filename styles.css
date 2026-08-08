@@ -462,6 +462,9 @@ body.live-on .toast{bottom:88px}
 .rep-table tbody th{font:700 12px 'DM Sans',sans-serif;color:var(--ink);min-width:132px}
 .rep-table tbody th small{display:block;font-size:9.5px;color:#948e9d;font-weight:600;margin-top:1px}
 .rep-table tbody tr{cursor:pointer}
+/* En el informe archivado la fila no abre nada: la copia no se edita, así que la
+   manita prometería un desglose que no existe. */
+.rep-table.sin-click tbody tr{cursor:default}
 .rep-table tbody tr:hover th,.rep-table tbody tr:hover td{background:#faf9fd}
 .rep-table td{font:800 13px Manrope;color:var(--purple)}
 .rep-table td.cero{color:#c3bfcc;font-weight:600}
@@ -682,8 +685,8 @@ body.lm-on .undo-toast{z-index:420}
 
 /* --- Cuerpo: una pantalla u otra, nunca las dos a la vez --- */
 .lm-body{position:relative;min-height:0;display:grid}
-.lm-p1,.lm-p2{min-height:0;display:grid;padding:12px}
-.lm-p1[hidden],.lm-p2[hidden]{display:none}
+.lm-p1,.lm-p2,.lm-pj{min-height:0;display:grid;padding:12px}
+.lm-p1[hidden],.lm-p2[hidden],.lm-pj[hidden]{display:none}
 .lm-p1{grid-template-rows:minmax(0,1fr) auto;gap:12px}
 
 /* Rejilla de eventos: 2 columnas. Lo bueno a la izquierda (verde) y lo malo a la
@@ -723,6 +726,41 @@ body.lm-on .undo-toast{z-index:420}
           white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lm-flash.on{animation:lm-flash .9s ease-out}
 @keyframes lm-flash{0%{opacity:0;transform:translateX(-50%) scale(.9)}12%{opacity:1;transform:translateX(-50%) scale(1)}70%{opacity:1}100%{opacity:0}}
+
+/* --- Pantalla de jugadores: quién ha hecho la acción ---
+   Dos columnas pegadas a los bordes y el centro despejado: el móvil se sujeta
+   con las dos manos y cada pulgar llega a su columna sin recolocarlo. El portero
+   va solo en una franja abajo, que es donde llegan los dos.
+   Reparte por mitades (lo decide lmJugadoresEnCampo), así que con diez en el
+   campo salen cinco y cuatro sin que ninguna columna quede coja. */
+.lm-pj{grid-template-rows:auto minmax(0,1fr) auto;gap:10px}
+.lmj-body{min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:10px}
+.lmj-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0}
+.lmj-col{display:flex;flex-direction:column;gap:8px;min-height:0}
+/* flex:1 sin base fija, igual que la rejilla de eventos: en una pantalla corta
+   los botones encogen en vez de desbordar y dejar a un jugador fuera de vista,
+   que es el fallo que no se puede permitir aquí. */
+.lmj-col>.lmj-p{flex:1 1 0}
+.lmj-p{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-height:46px;
+       border:2px solid #3d4b60;background:#1c2431;color:#e8f0fa;border-radius:14px;cursor:pointer;
+       padding:6px 12px;font:700 clamp(13px,2vh,18px) 'DM Sans',sans-serif;text-align:left;
+       transition:transform .06s;overflow:hidden}
+/* El dorsal manda: es por lo que se busca al jugador, y el nombre solo confirma. */
+.lmj-p b{font:800 clamp(17px,2.8vh,26px) Manrope,sans-serif;color:#ffd166;flex:none;
+         min-width:1.6em;text-align:center;line-height:1}
+.lmj-p span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lmj-p:active{transform:scale(.97);background:#243044}
+.lmj-p.hit{background:#22c55ecc;border-color:#22c55e;color:#04220f}
+.lmj-p.hit b{color:#04220f}
+/* El portero, aparte y en su franja: no compite con los diez de campo. */
+.lmj-gk{display:grid}
+.lmj-p.gk{min-height:56px;justify-content:center;background:#22304a;border-color:#4a5f80}
+.lmj-p.gk:active{background:#2c3d5c}
+/* Saltar tiene que ser tan fácil de acertar como cualquier jugador: media jugada
+   real no tiene autor claro y este es el camino normal, no el de emergencia. */
+.lmj-skip{min-height:56px;border:2px dashed #4a5a70;background:#171e2a;color:#c3d0e0;
+          border-radius:14px;cursor:pointer;font:800 clamp(13px,1.9vh,16px) Manrope,sans-serif}
+.lmj-skip:active{background:#243044}
 
 /* --- Pantalla 2: el campo en 3×3 --- */
 .lm-p2{grid-template-rows:auto minmax(0,1fr);gap:10px}
@@ -783,7 +821,7 @@ body.lm-on .undo-toast{z-index:420}
   .lm-minute{font-size:18px;padding:4px 8px}
   .lm-time b{font-size:18px}
   .lm-ico{width:42px;height:42px;font-size:16px}
-  .lm-p1,.lm-p2{padding:10px}
+  .lm-p1,.lm-p2,.lm-pj{padding:10px}
 }
 /* Los tres controles del reloj pasan a la hoja solo cuando de verdad no caben:
    por encima de 600 px sobra sitio para tenerlos sueltos, y una tablet no debe
@@ -821,10 +859,13 @@ body.lm-on .undo-toast{z-index:420}
    botones de registro, que son los que se pulsan. La columna verde lleva siete,
    así que aquí manda su alto mínimo: se baja antes que dejar uno fuera. */
 @media (max-height:720px){
-  .lm-p1,.lm-p2{padding:8px}
+  .lm-p1,.lm-p2,.lm-pj{padding:8px}
   .lm-p1{gap:10px}
   .lm-grid,.lm-col{gap:8px}
   .lm-ev{min-height:44px}
+  .lmj-cols,.lmj-col{gap:7px}
+  .lmj-p{min-height:40px}
+  .lmj-p.gk,.lmj-skip{min-height:48px}
   .lm-corners{gap:10px;padding-top:10px}
   .lm-corner{min-height:54px}
   .lm-bottom{padding:8px}
@@ -841,6 +882,13 @@ body.lm-on .undo-toast{z-index:420}
   .lm-undo{min-height:42px;font-size:13px}
   .lm-corners{padding-top:8px}
   .lm-sheet-card button{min-height:48px}
+  /* Apaisado con once jugadores: seis por columna en muy poco alto. Se aprieta
+     todo y el dorsal se queda grande, que es por lo que se busca; el nombre
+     puede encoger porque solo confirma. */
+  .lmj-cols,.lmj-col,.lmj-body{gap:5px}
+  .lmj-p{min-height:30px;font-size:12px;padding:4px 8px;gap:7px}
+  .lmj-p b{font-size:17px}
+  .lmj-p.gk,.lmj-skip{min-height:40px;font-size:13px}
 }
 
 /* Gol sin goleador en el marcador: se apunta en directo sin preguntar quién y

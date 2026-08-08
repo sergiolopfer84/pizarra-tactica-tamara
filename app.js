@@ -1193,9 +1193,14 @@ const DIRECTO_NOM={llegada_banda:'Llegada por banda',llegada_area:'Entrada al á
    que es donde el color sí ayuda. */
 const DIRECTO_IC={recuperacion:'⊕',perdida:'⊖',ocasion_conc:'△',foul_won:'✚',foul_made:'✖'};
 const DIRECTO_ZONA_MS=8000,   // sin tocar nada, la pantalla de zonas se cierra sola
+      /* La de jugadores aguanta más: en el campo se busca un cuadrante entre
+         nueve y ya se sabe cuál antes de mirar; aquí hay que leer once nombres
+         y encontrar el dorsal. Con los mismos 8 s se caducaban acciones que el
+         entrenador sí estaba a punto de registrar. */
+      DIRECTO_JUG_MS=12000,
       DIRECTO_REBOTE=300;     // dos toques más juntos que esto son el mismo dedo
 
-let lmAbierto=false,lmEquipo='own',lmInvertido=false,lmEvPend=null,
+let lmAbierto=false,lmEquipo='own',lmInvertido=false,lmEvPend=null,lmJugPend=null,
     lmAutoCancel=null,lmUltimoToque=0,lmDeshacer=[],lmFlashTimer=null,lmWake=null;
 
 /* La convención es fija: se ataca hacia arriba. En la 2ª parte se cambia de
@@ -1221,13 +1226,14 @@ function abrirDirecto(){
   lmAutoOrientacion();
   $('#liveScreen').hidden=false;
   document.body.classList.add('lm-on');
-  $('#lmP2').hidden=true;$('#lmP1').hidden=false;lmCerrarHoja();
+  lmEvPend=null;lmJugPend=null;
+  $('#lmP2').hidden=true;$('#lmPJ').hidden=true;$('#lmP1').hidden=false;lmCerrarHoja();
   renderLiveScreen();lmPedirWakeLock();
   if(L.running)liveStartTicking()
 }
 function cerrarDirecto(){
   if(!lmAbierto)return;
-  lmAbierto=false;lmCancelarZona();lmCerrarHoja();
+  lmAbierto=false;lmCancelarRegistro();lmCerrarHoja();
   $('#liveScreen').hidden=true;
   document.body.classList.remove('lm-on');
   lmSoltarWakeLock()
@@ -1327,24 +1333,98 @@ function lmCampoHTML(){
 function lmPulsarEvento(t){
   const def=EVENTO_DEF[t];if(!def)return;
   if(DIRECTO_SIN_ZONA.includes(t)){lmRegistrar(t,null);return}   // córner: se guarda ya, con su minuto
-  lmAbrirZonas(t)
+  /* Con el RIVAL seleccionado el paso de jugador se salta y todo sigue costando
+     dos toques: los "rivales" de la pizarra son cinco fichas genéricas de
+     relleno para dibujar, no su once de verdad, así que preguntar quién ha sido
+     solo serviría para ensuciar el informe con nombres inventados. */
+  if(lmEquipo==='rival'){lmAbrirZonas(t);return}
+  lmAbrirJugadores(t)
 }
+
+/* --- Pantalla de jugadores: quién ha hecho la acción ---
+   Reparto en dos columnas para que los dos pulgares lleguen sin recolocar el
+   móvil, y el portero solo abajo: es el único al que se busca por lo que hace y
+   no por dónde está. */
+const lmEsPortero=p=>p.position==='Portero';
+function lmJugadoresEnCampo(){
+  /* La fuente es la pizarra, la misma con la que se cuentan los minutos: así una
+     sustitución ya hecha cambia esta lista sola y no hay una segunda cuenta de
+     quién está dentro que pueda desajustarse. */
+  const dentro=tactic().placed.map(pp=>state.players.find(p=>p.id===pp.playerId)).filter(Boolean);
+  const portero=dentro.filter(lmEsPortero).sort(byNumber)[0]||null;
+  const resto=dentro.filter(p=>p!==portero).sort(byNumber);
+  /* Por mitades, no cinco fijos: con una expulsión hay diez en el campo, y con
+     el once sin terminar de colocar puede haber menos. Partir por la mitad
+     reparte siempre; cortar por el quinto dejaría una columna coja. */
+  const mitad=Math.ceil(resto.length/2);
+  return {portero,izq:resto.slice(0,mitad),der:resto.slice(mitad)};
+}
+function lmJugadorHTML(p,gk){
+  // Nombre de pila, como en las fichas de la pizarra: el dorsal ya distingue, y
+  // el apellido no cabe sin encoger la letra hasta hacerla inservible al sol.
+  return `<button type="button" class="lmj-p${gk?' gk':''}" data-jug="${p.id}"><b>${gk?'🧤 ':''}${esc(String(p.number||'–'))}</b><span>${esc(p.name.split(' ')[0])}</span></button>`
+}
+function lmPintarJugadores(){
+  const {portero,izq,der}=lmJugadoresEnCampo();
+  const col=l=>`<div class="lmj-col">${l.map(p=>lmJugadorHTML(p)).join('')}</div>`;
+  $('#lmjBody').innerHTML=`<div class="lmj-cols">${col(izq)}${col(der)}</div>`
+    +(portero?`<div class="lmj-gk">${lmJugadorHTML(portero,true)}</div>`:'')
+}
+function lmAbrirJugadores(t){
+  const def=EVENTO_DEF[t]||{},{portero,izq,der}=lmJugadoresEnCampo();
+  // Sin nadie colocado en la pizarra no hay a quién señalar: se va derecho al
+  // campo, en vez de enseñar una pantalla vacía que solo se puede saltar.
+  if(!portero&&!izq.length&&!der.length){lmAbrirZonas(t);return}
+  lmEvPend=t;lmJugPend=null;lmUltimoToque=0;
+  $('#lmjTitle').textContent=DIRECTO_NOM[t]||def.n||t;
+  lmPintarJugadores();
+  $('#lmP1').hidden=true;$('#lmP2').hidden=true;$('#lmPJ').hidden=false;
+  lmArmarAutoCancel(DIRECTO_JUG_MS)
+}
+function lmTocarJugador(id,btn){
+  const ahora=Date.now();
+  if(ahora-lmUltimoToque<DIRECTO_REBOTE)return;
+  lmUltimoToque=ahora;
+  const t=lmEvPend;if(!t)return;
+  lmJugPend=id;
+  btn.classList.add('hit');
+  try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}
+  // El mismo respiro que usa la rejilla de zonas para que se vea el destello
+  // antes de cambiar de pantalla.
+  setTimeout(()=>{if(lmEvPend===t)lmAbrirZonas(t)},120)
+}
+/* Saltar: la acción se guarda igual, pero como del equipo. Es la salida para
+   todo lo que no tiene autor claro —una ocasión concedida, un balón dividido—,
+   y sin ella el temporizador se llevaría por delante la acción entera, que es
+   bastante peor que perder solo el nombre. */
+function lmSaltarJugador(){
+  const t=lmEvPend;if(!t)return;
+  lmJugPend=null;lmAbrirZonas(t)
+}
+
 function lmAbrirZonas(t){
   const def=EVENTO_DEF[t]||{};
   lmEvPend=t;lmUltimoToque=0;
   $('#lmzTitle').textContent=DIRECTO_NOM[t]||def.n||t;
-  $('#lmzHint').textContent=lmEquipo==='rival'?'Acción del rival · toca la zona':'Toca la zona donde ha pasado';
+  // Con jugador elegido, el subtítulo lo recuerda: entre pulsar el nombre y
+  // pulsar el cuadrante es donde se cuela la duda de "¿a quién le he dado?".
+  $('#lmzHint').textContent=lmEquipo==='rival'
+    ?'Acción del rival · toca la zona'
+    :(lmJugPend?playerTag(lmJugPend)+' · toca la zona':'Toca la zona donde ha pasado');
   $('#lmzField').innerHTML=lmCampoHTML();
-  $('#lmP1').hidden=true;$('#lmP2').hidden=false;
+  $('#lmP1').hidden=true;$('#lmPJ').hidden=true;$('#lmP2').hidden=false;
   lmArmarAutoCancel()
 }
-function lmArmarAutoCancel(){
+function lmArmarAutoCancel(ms){
   clearTimeout(lmAutoCancel);
-  lmAutoCancel=setTimeout(()=>{lmCancelarZona();showToast('Sin registrar')},DIRECTO_ZONA_MS)
+  lmAutoCancel=setTimeout(()=>{lmCancelarRegistro();showToast('Sin registrar')},ms||DIRECTO_ZONA_MS)
 }
-function lmCancelarZona(){
-  clearTimeout(lmAutoCancel);lmAutoCancel=null;lmEvPend=null;
-  const p2=$('#lmP2');if(p2){p2.hidden=true;$('#lmP1').hidden=false}
+function lmCancelarRegistro(){
+  clearTimeout(lmAutoCancel);lmAutoCancel=null;lmEvPend=null;lmJugPend=null;
+  const p2=$('#lmP2'),pj=$('#lmPJ');
+  if(p2)p2.hidden=true;
+  if(pj)pj.hidden=true;
+  $('#lmP1').hidden=false
 }
 function lmTocarZona(z,btn){
   const ahora=Date.now();
@@ -1360,19 +1440,26 @@ function lmTocarZona(z,btn){
 }
 function lmRegistrar(tipo,zona){
   const L=state.live;if(!L.started||L.finished)return;
-  const ids=[],ev=crearEvento({tipo,ambito:'equipo',jugadorId:null,team:lmEquipo,zona,origen:'directo'});
+  /* Se consume aquí y se deja a null: el siguiente evento tiene que empezar sin
+     jugador aunque venga por un camino que no pase por esa pantalla (un córner,
+     o una acción del rival). */
+  const jug=lmJugPend;lmJugPend=null;
+  const ambito=jug?'jugador':'equipo';
+  const ids=[],ev=crearEvento({tipo,ambito,jugadorId:jug,team:lmEquipo,zona,origen:'directo'});
   ids.push(ev.id);
   /* Un gol es también un remate. Si no se duplicase, la distribución de tiros
      dejaría fuera precisamente los que acabaron dentro. Mismo minuto, misma
      zona y mismo equipo; el origen los distingue por si hay que separarlos. */
   if(tipo==='gol'){
-    ids.push(crearEvento({tipo:'tiro_puerta',ambito:'equipo',jugadorId:null,team:lmEquipo,zona,origen:'directo_gol'}).id);
-    // El marcador no se pregunta aquí: el gol entra sin goleador y se le asigna
-    // luego desde la pizarra, que es donde están las caras y los dorsales.
-    const gol={id:'g'+Date.now(),team:lmEquipo,scorerId:null,assistId:null,min:ev.minuto,evId:ev.id};
+    ids.push(crearEvento({tipo:'tiro_puerta',ambito,jugadorId:jug,team:lmEquipo,zona,origen:'directo_gol'}).id);
+    /* Con jugador elegido el goleador ya queda puesto y no hay que asignarlo
+       después desde la pizarra. Sin jugador (saltado, o gol del rival) sigue
+       entrando como "Sin asignar", exactamente igual que antes. */
+    const gol={id:'g'+Date.now(),team:lmEquipo,scorerId:jug||null,assistId:null,min:ev.minuto,evId:ev.id};
     state.match.goals.push(gol);ev.golId=gol.id;cloudSaveEvent(ev);renderScoreboard()
   }
-  const texto=`${EVENTO_IC[tipo]||''} ${DIRECTO_NOM[tipo]||EVENTO_NOM[tipo]||tipo}${zona?' · '+ZONA_ETI[zona]:''}${lmEquipo==='rival'?' · rival':''}`;
+  const quien=jug?' · '+playerTag(jug):'';
+  const texto=`${EVENTO_IC[tipo]||''} ${DIRECTO_NOM[tipo]||EVENTO_NOM[tipo]||tipo}${quien}${zona?' · '+ZONA_ETI[zona]:''}${lmEquipo==='rival'?' · rival':''}`;
   lmDeshacer.push({ids,texto});
   if(lmDeshacer.length>5)lmDeshacer.shift();
   try{navigator.vibrate&&navigator.vibrate(30)}catch(_){}
@@ -1396,7 +1483,19 @@ function lmDeshacerUltima(){
 function lmToggleEquipo(){
   lmEquipo=lmEquipo==='rival'?'own':'rival';
   lmPintarEquipo();
-  if(lmEvPend){$('#lmzHint').textContent=lmEquipo==='rival'?'Acción del rival · toca la zona':'Toca la zona donde ha pasado';lmArmarAutoCancel()}
+  if(lmEvPend){
+    /* Cambiar a RIVAL con la pantalla de jugadores abierta la deja sin sentido:
+       lo que se está eligiendo es del once propio. Se pasa al campo y se suelta
+       al jugador que hubiera marcado, que ya no es de quien se habla. */
+    if(!$('#lmPJ').hidden&&lmEquipo==='rival'){lmJugPend=null;lmAbrirZonas(lmEvPend)}
+    else if(!$('#lmP2').hidden){
+      $('#lmzHint').textContent=lmEquipo==='rival'
+        ?'Acción del rival · toca la zona'
+        :(lmJugPend?playerTag(lmJugPend)+' · toca la zona':'Toca la zona donde ha pasado');
+      lmArmarAutoCancel()
+    }
+    else lmArmarAutoCancel(DIRECTO_JUG_MS)
+  }
   try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}
 }
 function lmInvertir(){
@@ -1431,7 +1530,13 @@ $('#lmSheet').addEventListener('click',e=>{
   else if(b.dataset.act==='finish')$('#lmFinish').click();
   else if(b.dataset.act==='exit')$('#lmExit').click()
 });
-$('#lmzClose').onclick=lmCancelarZona;
+$('#lmzClose').onclick=lmCancelarRegistro;
+$('#lmjClose').onclick=lmCancelarRegistro;
+$('#lmjSkip').onclick=lmSaltarJugador;
+$('#lmjBody').addEventListener('click',e=>{
+  const b=e.target.closest('[data-jug]');
+  if(b)lmTocarJugador(b.dataset.jug,b)
+});
 $('#lmzFlip').onclick=lmInvertir;
 $('#lmUndo').onclick=lmDeshacerUltima;
 $('#lmTeam').onclick=lmToggleEquipo;
@@ -1446,7 +1551,7 @@ addEventListener('keydown',e=>{
   if(!lmAbierto||e.key!=='Escape')return;
   e.preventDefault();
   if(!$('#lmSheet').hidden)lmCerrarHoja();
-  else if(lmEvPend)lmCancelarZona();
+  else if(lmEvPend)lmCancelarRegistro();
   else cerrarDirecto()
 });
 
@@ -1755,13 +1860,22 @@ function renderTimelinePanel(){
 /* 4.3 Panel individual: nombres escritos, nunca iconos sueltos. En móvil hay
    scroll horizontal con la columna del jugador fija y se ocultan las columnas
    que no tienen ningún dato en este partido. */
+/* Los cuatro del final nacieron como eventos de equipo y no tenían columna: en
+   directo se guardaban sin jugador y no había nada que enseñar. Desde que la
+   pantalla de jugadores les pone autor, sin estas columnas el entrenador
+   marcaría a alguien y el dato no aparecería en ninguna tabla.
+   Las columnas vacías se ocultan solas (ver el filtro de renderPlayersPanel),
+   así que ampliar la lista no ensucia el informe de quien no las use. */
 const COLS_JUG=[
   {t:'gol',n:'Goles'},{t:'asistencia',n:'Asistencias'},{t:'tiro_puerta',n:'Tiros a puerta'},
   {t:'regate_ok',n:'Regates exitosos'},{t:'regate_fallo',n:'Regates fallidos'},{t:'pct',n:'% acierto en regate'},
   {t:'recuperacion',n:'Recuperaciones'},{t:'perdida',n:'Pérdidas'},{t:'pase_fallido',n:'Pases fallidos'},
   {t:'centro_remate',n:'Centros con remate'},{t:'error_despeje',n:'Errores en despeje'},{t:'profundidad',n:'Ataques a la profundidad'},
   {t:'foul_won',n:'Faltas recibidas'},{t:'foul_made',n:'Faltas cometidas'},{t:'save',n:'Paradas'},
-  {t:'yellow',n:'Tarjetas amarillas'},{t:'red',n:'Tarjetas rojas'}
+  {t:'yellow',n:'Tarjetas amarillas'},{t:'red',n:'Tarjetas rojas'},
+  {t:'duelo_ganado',n:'Duelos ganados'},{t:'duelo_perdido',n:'Duelos perdidos'},
+  {t:'llegada_area',n:'Entradas al área'},{t:'llegada_banda',n:'Llegadas por banda'},
+  {t:'ocasion_conc',n:'Ocasiones concedidas'}
 ];
 function conteoJugador(id){
   const c={};eventosDelPartido().filter(e=>e.jugadorId===id&&e.team!=='rival').forEach(e=>c[e.tipo]=(c[e.tipo]||0)+1);

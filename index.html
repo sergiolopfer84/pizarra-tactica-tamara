@@ -378,6 +378,19 @@
         <div class="lm-grid" id="lmGrid"></div>
         <div class="lm-corners" id="lmCorners"></div>
       </section>
+      <!-- Pantalla intermedia: quién ha hecho la acción. Se cuela entre la
+           rejilla y el campo, así que registrar pasa de dos toques a tres y a
+           cambio el informe individual deja de estar vacío en directo.
+           El botón de saltar no es un adorno: media jugada real no tiene autor
+           claro, y sin salida el temporizador tiraría la acción entera. -->
+      <section class="lm-pj" id="lmPJ" hidden>
+        <div class="lmz-head">
+          <div><b id="lmjTitle">Evento</b><small>¿Quién la ha hecho?</small></div>
+          <button type="button" class="lmz-close" id="lmjClose" aria-label="Cancelar">×</button>
+        </div>
+        <div class="lmj-body" id="lmjBody"></div>
+        <button type="button" class="lmj-skip" id="lmjSkip">Equipo · no lo vi</button>
+      </section>
       <section class="lm-p2" id="lmP2" hidden>
         <div class="lmz-head">
           <div><b id="lmzTitle">Evento</b><small id="lmzHint">Toca la zona donde ha pasado</small></div>

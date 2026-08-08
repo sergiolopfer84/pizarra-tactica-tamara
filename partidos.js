@@ -273,6 +273,46 @@ function tablaHist(titulo,filas){
   if(!con.length)return '';
   return `<div class="rt-col"><h4>${titulo}</h4><ul>${con.map(([k,v])=>`<li><span>${esc(k)}</span><b>${v}</b></li>`).join('')}</ul></div>`
 }
+/* Estadísticas individuales del partido guardado.
+   El informe en vivo ya tenía su tabla por jugador, pero el archivado no: hasta
+   ahora daba igual, porque en directo no se apuntaba quién hacía cada cosa y la
+   tabla habría salido vacía. Desde que el registro pregunta por el jugador, sin
+   esto el dato se vería el día del partido y desaparecería para siempre al
+   volver a abrirlo desde el listado.
+   Se agrupa por jugadorId, pero los nombres salen de la copia y no de la
+   plantilla: un informe de hace tres meses tiene que leerse igual aunque el
+   jugador ya no esté en el equipo. Los eventos antiguos sin id se agrupan por
+   nombre, que es lo único que traen. */
+function tablaJugadoresHist(ev){
+  const porJug=new Map();
+  ev.forEach(e=>{
+    if((e.team||'own')==='rival'||!e.nombre)return;
+    const k=e.jugadorId||('nombre:'+e.nombre);
+    if(!porJug.has(k))porJug.set(k,{nombre:e.nombre,dorsal:e.dorsal,c:{}});
+    const x=porJug.get(k);x.c[e.tipo]=(x.c[e.tipo]||0)+1
+  });
+  if(!porJug.size)return '';
+  const filas=[...porJug.values()].sort((a,b)=>(Number(a.dorsal)||99)-(Number(b.dorsal)||99));
+  filas.forEach(f=>{
+    const int=(f.c.regate_ok||0)+(f.c.regate_fallo||0);
+    f.c.pct=int?Math.round((f.c.regate_ok||0)/int*100):null
+  });
+  // Mismo catálogo de columnas que el informe en vivo (COLS_JUG, en app.js): dos
+  // listas separadas acabarían enseñando cosas distintas del mismo partido.
+  const cols=COLS_JUG.filter(col=>filas.some(f=>col.t==='pct'?f.c.pct!==null:(f.c[col.t]||0)>0));
+  if(!cols.length)return '';
+  const cab=cols.map(c=>`<th>${esc(c.n)}</th>`).join('');
+  const cuerpo=filas.map(f=>`<tr><th scope="row">${esc(f.nombre)}${f.dorsal?`<small>Dorsal ${esc(String(f.dorsal))}</small>`:''}</th>${
+    cols.map(col=>{
+      const v=col.t==='pct'?(f.c.pct===null?'—':f.c.pct+'%'):(f.c[col.t]||0);
+      return `<td class="${(col.t!=='pct'&&!f.c[col.t])?'cero':''}">${v}</td>`
+    }).join('')}</tr>`).join('');
+  return `<section class="rep-card">
+    <div class="rep-card-head"><span class="eyebrow">JUGADORES</span><h3>Estadísticas individuales</h3></div>
+    <div class="rep-table-wrap"><table class="rep-table sin-click"><thead><tr><th scope="col">Jugador</th>${cab}</tr></thead><tbody>${cuerpo}</tbody></table></div>
+  </section>`
+}
+
 function pintarDetalle(cab,info){
   const box=$('#matchDetail');
   if(!info){
@@ -346,6 +386,7 @@ function pintarDetalle(cab,info){
       <div class="r-block"><h4>Goles</h4><ul class="r-list r-goals">${golesHTML}</ul></div>
       <div class="r-block"><h4>Minutos jugados</h4><ul class="r-list r-minutes">${minHTML}</ul></div>${camHTML}
     </section>
+    ${tablaJugadoresHist(ev)}
     ${crono?`<section class="rep-card"><div class="rep-card-head"><span class="eyebrow">MINUTO A MINUTO</span><h3>Cronología</h3></div>${crono}</section>`:''}`;
 
   $('#mdVolver').onclick=pintarLista;
