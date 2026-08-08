@@ -421,7 +421,7 @@ async function pintarPizarras(){
   const sinConfirmar=!verificado();
   $('#avisoVerificar').hidden=!sinConfirmar;
   $('#avisoEmail').textContent=usuario.email||'';
-  if(sinConfirmar)$('#formVincular').hidden=true;
+  if(sinConfirmar){$('#formVincular').hidden=true;$('#formNueva').hidden=true}
 
   const lleno=pizarras.length>=MAX_PIZARRAS;
   $('#btnNueva').disabled=lleno||sinConfirmar;
@@ -452,26 +452,71 @@ async function desvincular(clave,nombre){
   catch(e){ $('#errPizarras').textContent=mensajeError(e);await cargarPizarras();await pintarPizarras() }
 }
 
-$('#btnNueva').onclick=async()=>{
+/* ===== Crear una pizarra =====
+   La clave la elige el usuario. No es solo comodidad: la clave es lo que se
+   dicta por teléfono para que entre el segundo entrenador, y una cadena al azar
+   como `dtc-k7m3npq2rs` no hay quien la dicte. La aleatoria sigue disponible
+   para quien no quiera pensarla. */
+
+/* Minúsculas SIEMPRE, y se le enseña ya convertida. La clave se convierte en el
+   ID del documento tal cual se escriba, así que "MiClub-2026" y "miclub-2026"
+   son dos pizarras distintas y vacías la una para la otra; como el teclado del
+   móvil pone mayúscula en la primera letra por su cuenta, quien la eligiese con
+   mayúsculas se quedaría fuera de su propia pizarra al teclearla luego.
+   Fuera también espacios y acentos: son los que se pierden al dictar. */
+const normalizarClave=s=>s.trim().toLowerCase();
+const CLAVE_OK=/^[a-z0-9-]+$/;
+
+/* "¿Está libre esta clave?" no es lo mismo que "¿existe el documento?".
+   `allow get: if autorizado(resource)`: una pizarra YA RECLAMADA por otro no se
+   puede ni leer, así que el get() no devuelve "no existe", revienta con
+   permission-denied. Con claves al azar esto no pasaba nunca; en cuanto la
+   eligen las personas, "atletico-2026" choca el primer día. Para lo que aquí se
+   pregunta, no poder mirarla es tan definitivo como encontrarla ocupada. El
+   resto de errores (sin red, por ejemplo) sí tienen que subir: decir "libre"
+   porque se ha caído la conexión metería al usuario en la pizarra de otro. */
+async function claveLibre(clave){
+  try{
+    const d=await db.collection('pizarras').doc(await hashDeClave(clave)).get();
+    return !d.exists;
+  }catch(e){
+    if(e&&e.code==='permission-denied')return false;
+    throw e;
+  }
+}
+
+$('#btnNueva').onclick=()=>{
   limpiarAvisos();
   if(pizarras.length>=MAX_PIZARRAS)return;
-  const b=$('#btnNueva');ocupado(b,'Creando…');
+  $('#formVincular').hidden=true;
+  $('#formNueva').hidden=false;
+  $('#nvaClave').value='';
+  $('#nvaClave').focus();
+};
+$('#btnNuevaNo').onclick=()=>{limpiarAvisos();$('#formNueva').hidden=true};
+$('#btnClaveAzar').onclick=()=>{$('#nvaClave').value=claveNueva();$('#nvaClave').focus()};
+
+$('#formNueva').onsubmit=async e=>{
+  e.preventDefault();limpiarAvisos();
+  const clave=normalizarClave($('#nvaClave').value);
+  const err=$('#errNueva');
+  if(clave.length<6){err.textContent='La clave debe tener al menos 6 caracteres.';return}
+  if(clave.length>60){err.textContent='La clave no puede pasar de 60 caracteres.';return}
+  if(!CLAVE_OK.test(clave)){err.textContent='Solo letras sin acentos, números y guiones. Sin espacios ni eñes: son los que se pierden al dictarla.';return}
+  if(pizarras.some(p=>normalizarClave(p.clave)===clave)){err.textContent='Ya tienes una pizarra con esa clave.';return}
+  if(pizarras.length>=MAX_PIZARRAS){err.textContent='Ya tienes '+MAX_PIZARRAS+' pizarras.';return}
+
+  const b=$('#btnNuevaOk');ocupado(b,'Creando…');
   try{
-    // Una clave al azar podría, en teoría, coincidir con la de otro: entonces
-    // esta cuenta entraría en la pizarra de un tercero. Se comprueba y se
-    // reintenta antes que arriesgarse.
-    let clave=null;
-    for(let i=0;i<5;i++){
-      const c=claveNueva();
-      const d=await db.collection('pizarras').doc(await hashDeClave(c)).get();
-      if(!d.exists){clave=c;break}
+    if(!await claveLibre(clave)){
+      err.textContent='Esa clave ya está en uso. Prueba con otra: añadirle el año o la categoría suele bastar.';
+      return;
     }
-    if(!clave)throw new Error('No se ha podido generar una clave libre. Inténtalo otra vez.');
     pizarras=pizarras.concat([{clave,nombre:'Pizarra nueva',creada:Date.now()}]);
     await guardarPizarras();
     abrir(clave);
-  }catch(e){
-    $('#errPizarras').textContent=mensajeError(e);
+  }catch(ex){
+    err.textContent=mensajeError(ex);
     await cargarPizarras();await pintarPizarras();
   }finally{ libre(b) }
 };
@@ -479,6 +524,7 @@ $('#btnNueva').onclick=async()=>{
 /* ===== Vincular una pizarra que ya existe ===== */
 $('#btnVincular').onclick=()=>{
   limpiarAvisos();
+  $('#formNueva').hidden=true;
   $('#formVincular').hidden=false;
   $('#vinClave').value='';
   $('#vinClave').focus();

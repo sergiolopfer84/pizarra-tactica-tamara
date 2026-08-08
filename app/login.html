@@ -124,6 +124,22 @@
     </div>
     <p class="error" id="errPizarras"></p>
 
+    <!-- Crear una pizarra: la clave la elige el entrenador. Antes se generaba al
+         azar (dtc-k7m3npq2rs) y era lo que había que dictarle por teléfono al
+         segundo entrenador, que es justo para lo que no sirve. -->
+    <form id="formNueva" hidden novalidate>
+      <label>Clave de acceso de tu pizarra nueva
+        <input type="text" id="nvaClave" placeholder="miclub-2026" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required />
+        <small>Es lo que tendrás que dictarle a tu ayudante, así que elige algo fácil de decir: el nombre del club y el año va bien. Solo letras, números y guiones; se guarda en minúsculas.</small>
+      </label>
+      <p class="error" id="errNueva"></p>
+      <div class="acciones">
+        <button class="btn" type="submit" id="btnNuevaOk">Crear</button>
+        <button class="btn btn-fantasma" type="button" id="btnNuevaNo">Cancelar</button>
+      </div>
+      <p class="nota"><button type="button" class="enlace" id="btnClaveAzar">Prefiero una clave al azar</button></p>
+    </form>
+
     <!-- Vincular una pizarra existente por su clave. Es lo que permite que quien
          ya venía usando una clave se la meta en su cuenta sin perder nada. -->
     <form id="formVincular" hidden novalidate>
