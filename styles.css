@@ -24,6 +24,33 @@
 .rival-colors{margin-left:auto;display:flex;gap:12px}.rival-colors label{font-size:8px;color:#bdbec7;font-weight:700;letter-spacing:.08em}.rival-colors input{display:block;width:42px;height:28px;border:1px solid #ffffff44;border-radius:5px;background:none;padding:2px;margin-top:5px;cursor:pointer}.pitch-player.sub-selected:before{content:"SALE";position:absolute;left:50%;top:-25px;transform:translateX(-50%);background:#d74650;color:white;border-radius:8px;padding:2px 6px;font-size:7px;font-weight:800}.sub-badge{position:absolute;z-index:10;transform:translate(-50%,-50%);background:#fff;border-radius:16px;padding:4px 7px;box-shadow:0 3px 8px #0006;font-size:13px;font-weight:900;display:flex;gap:2px}.sub-badge .in{color:#18a567}.sub-badge .out{color:#dc4f57}.substitution-tool.active{background:#e9f7f0!important;color:#16865a!important}@media(max-width:680px){.rival-colors{width:100%;margin:9px 0 0}.rival-header-card{flex-wrap:wrap}}
 .pitch-player.rival .player-token{background-color:var(--rival-primary,#20232b);border-color:var(--rival-secondary,#ffbd35)}
 
+/* ===== Huecos de la formación y arrastre al campo =====
+   Sombra gris hueca, no un botón: marca dónde falta gente sin competir con los
+   jugadores ya colocados. Sin pointer-events, porque el destino se decide por
+   cercanía al dedo y no por acertar el círculo (ver huecoMasCercano). */
+#pitchSlots{position:absolute;inset:0;z-index:5;pointer-events:none}
+.pitch-slot{position:absolute;width:46px;height:46px;transform:translate(-50%,-50%);border-radius:50%;
+            border:2px dashed #ffffff8c;background:#0000002e;box-shadow:inset 0 2px 10px #00000026;
+            transition:transform .12s,background .12s,border-color .12s}
+/* El hueco al que va a caer: se marca DURANTE el arrastre, así que al soltar no
+   hay sorpresa. */
+.pitch-slot.over{background:#f6c34473;border-color:#f6c344;border-style:solid;transform:translate(-50%,-50%) scale(1.22)}
+/* Mientras se arrastra desde el banquillo, los huecos se hacen notar. */
+body.colocando .pitch-slot{border-color:#ffffffd9;background:#00000042}
+.bench-player.arrastrando{opacity:.4}
+.drag-ghost{position:fixed;z-index:300;pointer-events:none;transform:translate(-50%,-50%);opacity:.92;
+            filter:drop-shadow(0 8px 14px #0006)}
+.drag-ghost .player-token{width:46px;height:46px;border-radius:50%;border:3px solid white;background:var(--purple);
+                          display:grid;place-items:center;color:white;font-weight:800;background-size:cover;
+                          background-position:center;position:relative}
+.drag-ghost .player-token b{position:absolute;right:-6px;top:-4px;width:18px;height:18px;border-radius:50%;
+                            background:white;color:var(--purple);font-size:9px;display:grid;place-items:center;border:1px solid #ddd}
+/* El banquillo como destino: soltar aquí a un jugador del campo lo saca. */
+.bench-panel.soltar-aqui{outline:2px dashed var(--red);outline-offset:-4px;background:#fff5f5}
+/* En papel las sombras solo ensucian: la alineación impresa es la que hay, no
+   una invitación a colocar a nadie. */
+@media print{#pitchSlots{display:none!important}}
+
 /* Acceso con clave y sincronización */
 .auth-overlay{position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,#21065f,#31098c 55%,#4b16b7);display:grid;place-items:center;padding:20px}
 .auth-overlay.hidden{display:none}

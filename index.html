@@ -180,6 +180,9 @@
                 <div class="penalty bottom"><i></i><b></b></div><div class="goal bottom"></div>
                 <svg id="drawingLayer" viewBox="0 0 1000 1400" preserveAspectRatio="none"><defs><marker id="arrowHead" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L0,9 L9,4.5 z" fill="#f6c344"/></marker></defs><g id="arrows"></g><g id="graphics"></g><path id="draftArrow" class="draft" d="" /></svg>
                 <div id="textLayer"></div><div id="substitutionLayer"></div>
+                <!-- Huecos libres de la formación. Van DEBAJO de los jugadores
+                     para que un token nunca quede tapado por una sombra. -->
+                <div id="pitchSlots"></div>
                 <div id="pitchPlayers"></div>
                 <div class="pitch-hint" id="pitchHint">Selecciona jugadores del banquillo para colocarlos</div>
               </div>
@@ -189,9 +192,9 @@
             </div>
           </section>
 
-          <aside class="bench-panel">
+          <aside class="bench-panel" id="benchPanel">
             <div class="panel-heading"><div><span>DISPONIBLES</span><h3>Banquillo</h3></div><span id="availableCount" class="count-pill">0</span></div>
-            <p class="helper">Pulsa un jugador para añadirlo al campo.</p>
+            <p class="helper">Arrastra un jugador a un hueco del campo, o púlsalo para que ocupe el primero libre. Para sacarlo, arrástralo de vuelta aquí.</p>
             <div id="benchList" class="bench-list"></div>
             <button class="text-btn" data-go-squad>＋ Añadir jugador a plantilla</button>
             <div class="legend"><span><i class="dot green"></i>Disponible</span><span><i class="dot amber"></i>Duda</span><span><i class="dot red"></i>Baja</span></div>

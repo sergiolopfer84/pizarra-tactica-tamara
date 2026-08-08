@@ -7,6 +7,10 @@ const formations={
   '3-5-2':[[50,89],[25,72],[50,76],[75,72],[12,50],[35,56],[50,47],[65,56],[88,50],[37,23],[63,23]],
   '3-4-3':[[50,89],[25,72],[50,76],[75,72],[18,50],[40,55],[60,55],[82,50],[18,25],[50,20],[82,25]]
 };
+/* Once huecos por formación, y ni uno más en el campo. Vive aquí arriba y no
+   junto al resto de la lógica de huecos porque normalizeState() lo necesita, y
+   normalizeState() se ejecuta en cuanto se carga el archivo. */
+const ONCE=11;
 /* Plantilla de ejemplo de una pizarra nueva.
    Antes eran los doce jugadores REALES de la UD Tamaraceite, con sus nombres y
    sus notas médicas ("Molestias leves", "Recuperación muscular"). Eso lo veía
@@ -144,6 +148,16 @@ function normalizeState(s){
   // vez se propone automáticamente a todos los disponibles.
   if(s.match.called && !Array.isArray(s.match.called))delete s.match.called;
   s.tactics.forEach(t=>{t.placed||=[];t.arrows||=[];t.opponentPlaced||=[];t.graphics||=[];t.labels||=[];t.highlighted||=[];t.substitutions||=[]});
+  /* `slot` (en qué hueco de la formación está cada jugador) no existía antes de
+     los huecos grises. Se reparte por cercanía a las pizarras ya guardadas, así
+     que un once colocado conserva su dibujo y los huecos libres salen donde
+     de verdad falta gente. Va después del ||= de arriba, que es quien garantiza
+     que `placed` existe. También recorta el campo si venía con más de once:
+     nunca pasó, pero un hueco de más dejaría a alguien sin sitio. */
+  s.tactics.forEach(t=>{
+    if(t.placed.length>ONCE)t.placed=t.placed.slice(0,ONCE);
+    asignarHuecos(t)
+  });
   return s
 }
 let state=normalizeState(defaultState());
@@ -178,11 +192,155 @@ function switchView(v){$$('.view,.nav-item').forEach(x=>x.classList.remove('acti
 $$('.nav-item').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$$('[data-go-squad]').forEach(b=>b.onclick=()=>switchView('squad'));$$('[data-go-rival]').forEach(b=>b.onclick=()=>switchView('rival'));$('.mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 function renderTabs(){$('#tacticTabs').innerHTML=state.tactics.map((t,i)=>`<button class="tactic-tab ${t.id===state.activeTactic?'active':''}" data-id="${t.id}">${esc(t.name)}${state.tactics.length>1?`<span class="remove" data-remove="${t.id}">×</span>`:''}</button>`).join('');$$('.tactic-tab').forEach(b=>b.onclick=e=>{if(e.target.dataset.remove){e.stopPropagation();state.tactics=state.tactics.filter(t=>t.id!==e.target.dataset.remove);if(state.activeTactic===e.target.dataset.remove)state.activeTactic=state.tactics[0].id}else state.activeTactic=b.dataset.id;persist();renderAll()})}
 $('#addTactic').onclick=()=>{const n=state.tactics.length+1,id='t'+Date.now();state.tactics.push({id,name:`Táctica ${n}`,formation:'4-3-3',placed:[],arrows:[]});state.activeTactic=id;persist();renderAll()};
-function renderBench(){const placed=new Set(tactic().placed.map(x=>x.playerId));const available=state.players.filter(p=>!placed.has(p.id));$('#availableCount').textContent=available.length;$('#benchList').innerHTML=available.map(p=>`<button class="bench-player own-choice" data-id="${p.id}"><span class="bench-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</span><p><strong>${esc(p.name)}</strong><small>${esc(p.position)} · ${esc(p.number)}</small></p><i class="status-dot ${p.status}"></i></button>`).join('')||'<p class="helper">Toda la plantilla está en el campo.</p>';$$('.own-choice').forEach(b=>b.onclick=()=>benchAction(b.dataset.id,'own'));}
+function renderBench(){const placed=new Set(tactic().placed.map(x=>x.playerId));const available=state.players.filter(p=>!placed.has(p.id));$('#availableCount').textContent=available.length;$('#benchList').innerHTML=available.map(p=>`<button class="bench-player own-choice" data-id="${p.id}"><span class="bench-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</span><p><strong>${esc(p.name)}</strong><small>${esc(p.position)} · ${esc(p.number)}</small></p><i class="status-dot ${p.status}"></i></button>`).join('')||'<p class="helper">Toda la plantilla está en el campo.</p>';$$('.own-choice').forEach(b=>{b.onclick=()=>{if(Date.now()-bDragFin<400)return;benchAction(b.dataset.id,'own')};b.onpointerdown=startBenchDrag});}
+
+/* ===== Arrastrar del banquillo al campo =====
+   El toque suelto sigue funcionando como siempre (coloca en el primer hueco
+   libre), así que esto no quita nada: solo añade poder elegir el sitio. La
+   diferencia entre un toque y un arrastre es haber movido el dedo más de 8 px,
+   el mismo umbral que ya usa el arrastre de los jugadores del campo.
+   El arrastre solo existe con la herramienta Mover: con "Cambio" seleccionado
+   el banquillo sirve para elegir quién entra, y robarle el toque rompería el
+   flujo de la sustitución. */
+let bDrag=null,bDragFin=0;
+function startBenchDrag(e){
+  if(tool!=='move')return;
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const el=e.currentTarget,id=el.dataset.id;
+  if(tactic().placed.length>=ONCE)return;   // sin hueco no hay nada que arrastrar
+  bDrag={id,el,x0:e.clientX,y0:e.clientY,vivo:false,ghost:null,hueco:null,pid:e.pointerId};
+  el.setPointerCapture(e.pointerId);
+  el.onpointermove=moverBenchDrag;
+  el.onpointerup=soltarBenchDrag;
+  el.onpointercancel=finBenchDrag
+}
+function moverBenchDrag(e){
+  if(!bDrag)return;
+  if(!bDrag.vivo){
+    if(Math.hypot(e.clientX-bDrag.x0,e.clientY-bDrag.y0)<=8)return;
+    bDrag.vivo=true;
+    const p=state.players.find(x=>x.id===bDrag.id);
+    if(!p){finBenchDrag();return}
+    const g=document.createElement('div');
+    g.className='drag-ghost';
+    g.innerHTML=`<span class="player-token" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}<b>${esc(p.number||'-')}</b></span>`;
+    document.body.appendChild(g);
+    bDrag.ghost=g;
+    document.body.classList.add('colocando');
+    bDrag.el.classList.add('arrastrando')
+  }
+  bDrag.ghost.style.left=e.clientX+'px';
+  bDrag.ghost.style.top=e.clientY+'px';
+  marcarHuecoDestino(e.clientX,e.clientY)
+}
+/* El hueco de destino se decide por cercanía al puntero y no por lo que haya
+   justo debajo: el dedo tapa el círculo y en un móvil acertar 26 px de diana es
+   pedir demasiado. Se marca en pantalla mientras se arrastra, así que no hay
+   sorpresa al soltar. */
+function huecoMasCercano(cx,cy){
+  const r=$('#pitch').getBoundingClientRect();
+  if(cx<r.left||cx>r.right||cy<r.top||cy>r.bottom)return null;
+  const x=(cx-r.left)/r.width*100,y=(cy-r.top)/r.height*100,t=tactic(),spots=formations[t.formation]||[];
+  let mejor=null,dist=Infinity;
+  huecosLibres(t).forEach(i=>{
+    const d=Math.hypot(spots[i][0]-x,spots[i][1]-y);
+    if(d<dist){dist=d;mejor=i}
+  });
+  return mejor
+}
+function marcarHuecoDestino(cx,cy){
+  const h=huecoMasCercano(cx,cy);
+  if(bDrag)bDrag.hueco=h;
+  $$('#pitchSlots .pitch-slot').forEach(s=>s.classList.toggle('over',+s.dataset.slot===h))
+}
+function soltarBenchDrag(){
+  if(!bDrag)return;
+  const {id,vivo,hueco}=bDrag;
+  finBenchDrag();
+  // Sin arrastre no se hace nada aquí: el toque suelto lo recoge el onclick.
+  if(!vivo)return;
+  if(hueco==null){showToast('Suéltalo dentro del campo para colocarlo');return}
+  placePlayer(id,'own',hueco)
+}
+function finBenchDrag(){
+  if(!bDrag)return;
+  const {el,ghost,pid,vivo}=bDrag;
+  if(ghost)ghost.remove();
+  el.classList.remove('arrastrando');
+  el.onpointermove=null;el.onpointerup=null;el.onpointercancel=null;
+  try{el.releasePointerCapture(pid)}catch(_){}
+  document.body.classList.remove('colocando');
+  $$('#pitchSlots .pitch-slot').forEach(s=>s.classList.remove('over'));
+  /* Marca de tiempo, y no un listener que anule el clic: el navegador dispara el
+     click DESPUÉS del pointerup sobre el mismo botón, y el onclick del banquillo
+     ya está puesto desde renderBench, así que un listener nuevo llegaría el
+     segundo y no lo pararía. Con la marca, el onclick se aparta solo. Caduca
+     sola, así que un arrastre que acabe fuera no deja el botón muerto. */
+  if(vivo)bDragFin=Date.now();
+  bDrag=null
+}
 function renderRivalBench(){const placed=new Set(tactic().opponentPlaced.map(x=>x.playerId)),available=state.rivals.filter(p=>!placed.has(p.id));$('#rivalAvailableCount').textContent=available.length;$('#rivalBenchList').innerHTML=available.map(p=>`<button class="bench-player rival-choice" data-id="${p.id}"><span class="bench-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</span><p><strong>${esc(p.name)}</strong><small>${esc(p.position)} · ${esc(p.number)}</small></p></button>`).join('')||'<p class="helper">Todo el rival está en el campo.</p>';$$('.rival-choice').forEach(b=>b.onclick=()=>benchAction(b.dataset.id,'rival'))}
 function benchAction(id,team){if(tool==='sub'){if(!substitutionPending){showToast('Primero selecciona quién sale del campo');return}if(substitutionPending.team!==team){showToast('Elige un jugador del mismo equipo');return}completeSubstitution(id);return}placePlayer(id,team)}
-function placePlayer(id,team='own'){pushUndo();const t=tactic(),list=team==='rival'?t.opponentPlaced:t.placed,spots=formations[t.formation]||[];let pos=team==='rival'?[15+list.length%4*23,15+Math.floor(list.length/4)*12]:(spots[list.length]||[50,50]);list.push({playerId:id,x:pos[0],y:pos[1]});persist();renderBoard()}
-function renderPitch(){const t=tactic();$('#formation').value=t.formation;const own=t.placed.map(pp=>playerHTML(pp,state.players,'own')).join(''),rival=t.opponentPlaced.map(pp=>playerHTML(pp,state.rivals,'rival')).join('');$('#pitchPlayers').innerHTML=own+rival;$('#pitchHint').style.display=(t.placed.length+t.opponentPlaced.length)?'none':'block';$$('.pitch-player').forEach(el=>{el.onpointerdown=startPlayerDrag;el.oncontextmenu=e=>{e.preventDefault();e.stopPropagation();openContextMenu(e.clientX,e.clientY,el.dataset.id,el.dataset.team)}});renderArrows();if(window.Vista3D)Vista3D.refrescar()}
+/* ===== Huecos de la formación =====
+   Cada jugador propio del campo ocupa UN hueco de la formación, guardado en
+   `slot`. No se deduce de su posición en pantalla a propósito: el entrenador
+   arrastra a la gente fuera de su sitio continuamente para dibujar un
+   movimiento, y si el hueco se recalculase por cercanía le aparecería una sombra
+   gris debajo cada vez que separa a alguien de su posición teórica.
+   Los huecos libres son los que se pintan en gris, y son los únicos sitios donde
+   cae un jugador que llega del banquillo. Como la formación tiene once, el tope
+   de once sale solo (ONCE se declara arriba, con las formaciones). */
+function huecosLibres(t){
+  const spots=formations[t.formation]||[],tomados=new Set(t.placed.map(pp=>pp.slot));
+  return spots.map((_,i)=>i).filter(i=>!tomados.has(i))
+}
+/* Reparte hueco a quien no lo tenga. Lo necesitan las pizarras guardadas antes
+   de que existiera `slot` y cualquier cambio de formación: se asigna por
+   cercanía, así que un once ya colocado conserva su dibujo. */
+function asignarHuecos(t){
+  const spots=formations[t.formation]||[],tomados=new Set();
+  t.placed.forEach(pp=>{
+    const s=pp.slot;
+    if(Number.isInteger(s)&&s>=0&&s<spots.length&&!tomados.has(s))tomados.add(s);else pp.slot=null
+  });
+  t.placed.forEach(pp=>{
+    if(pp.slot!=null)return;
+    let mejor=null,dist=Infinity;
+    spots.forEach((s,i)=>{
+      if(tomados.has(i))return;
+      const d=Math.hypot(s[0]-(pp.x??50),s[1]-(pp.y??50));
+      if(d<dist){dist=d;mejor=i}
+    });
+    if(mejor!=null){pp.slot=mejor;tomados.add(mejor)}
+  })
+}
+
+function placePlayer(id,team='own',hueco=null){
+  const t=tactic(),list=team==='rival'?t.opponentPlaced:t.placed,spots=formations[t.formation]||[];
+  if(team!=='rival'){
+    // El tope no es un capricho: once son los que caben en la formación, y sin
+    // freno el doceavo se apilaba encima del último sin que se notase.
+    if(list.length>=ONCE){showToast('En el campo solo caben once. Saca a alguno arrastrándolo al banquillo.',3000);return}
+    const libres=huecosLibres(t);
+    const s=(hueco!=null&&libres.includes(hueco))?hueco:(libres.length?libres[0]:null);
+    pushUndo();
+    const pos=(s!=null&&spots[s])?spots[s]:[50,50];
+    list.push({playerId:id,x:pos[0],y:pos[1],slot:s})
+  }else{
+    pushUndo();
+    const pos=[15+list.length%4*23,15+Math.floor(list.length/4)*12];
+    list.push({playerId:id,x:pos[0],y:pos[1]})
+  }
+  persist();renderBoard()
+}
+function renderPitch(){const t=tactic();$('#formation').value=t.formation;const own=t.placed.map(pp=>playerHTML(pp,state.players,'own')).join(''),rival=t.opponentPlaced.map(pp=>playerHTML(pp,state.rivals,'rival')).join('');$('#pitchPlayers').innerHTML=own+rival;renderHuecos();$('#pitchHint').style.display=(t.placed.length+t.opponentPlaced.length)?'none':'block';$$('.pitch-player').forEach(el=>{el.onpointerdown=startPlayerDrag;el.oncontextmenu=e=>{e.preventDefault();e.stopPropagation();openContextMenu(e.clientX,e.clientY,el.dataset.id,el.dataset.team)}});renderArrows();if(window.Vista3D)Vista3D.refrescar()}
+/* Sombras grises de los huecos sin cubrir. Enseñan el dibujo de la formación
+   antes de colocar a nadie y hacen de diana al arrastrar desde el banquillo. */
+function renderHuecos(){
+  const t=tactic(),spots=formations[t.formation]||[];
+  $('#pitchSlots').innerHTML=huecosLibres(t)
+    .map(i=>`<span class="pitch-slot" data-slot="${i}" style="left:${spots[i][0]}%;top:${spots[i][1]}%"></span>`).join('')
+}
 function playerHTML(pp,roster,team){const p=roster.find(x=>x.id===pp.playerId);if(!p)return'';const marked=tactic().highlighted.includes(team+':'+p.id),selected=substitutionPending&&substitutionPending.team===team&&substitutionPending.id===p.id;const rivalStyle=team==='rival'?`--rival-primary:${state.rivalColors.primary};--rival-secondary:${state.rivalColors.secondary}`:'';const liveMin=(team==='own'&&state.live&&state.live.started&&!state.live.finished)?`<u class="live-min" data-min="${p.id}">${Math.floor((state.live.minutes[p.id]||0)/60)}′</u>`:'';const tj=tarjetaDe(team,p.id),carta=tj?`<em class="card-badge ${tj.clase}" title="${esc(tj.txt)}"></em>`:'';return `<div class="pitch-player ${team==='rival'?'rival':''} ${marked?'highlighted':''} ${selected?'sub-selected':''}" data-id="${p.id}" data-team="${team}" style="left:${pp.x}%;top:${pp.y}%;${rivalStyle}"><div class="player-token" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}<b>${esc(p.number||'-')}</b>${liveMin}${carta}</div><small>${esc(p.name.split(' ')[0])}</small></div>`}
 /* Tarjeta visible sobre el jugador. Se pinta la sanción vigente, no el
    historial: dos amarillas son una expulsión, así que sale la roja. No se
@@ -206,9 +364,31 @@ function startPlayerDrag(e){const el=e.currentTarget,id=el.dataset.id,team=el.da
   if(e.pointerType!=='mouse')lpTimer=setTimeout(()=>{lpTimer=null;el.onpointermove=null;el.onpointerup=null;try{el.releasePointerCapture(e.pointerId)}catch(_){}openContextMenu(sx,sy,id,team)},480);
   // La foto para deshacer se toma en el primer movimiento real, antes de tocar
   // pp: así un toque suelto sobre el jugador no llena la pila de pasos vacíos.
-  el.onpointermove=ev=>{if(lpTimer&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>8){clearTimeout(lpTimer);lpTimer=null}if(!movido){movido=true;pushUndo()}const r=pitch.getBoundingClientRect();pp.x=Math.max(3,Math.min(97,(ev.clientX-r.left)/r.width*100));pp.y=Math.max(3,Math.min(97,(ev.clientY-r.top)/r.height*100));el.style.left=pp.x+'%';el.style.top=pp.y+'%'};el.onpointerup=()=>{if(lpTimer){clearTimeout(lpTimer);lpTimer=null}el.onpointermove=null;persist();renderBench();renderRivalBench()}}
+  el.onpointermove=ev=>{if(lpTimer&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>8){clearTimeout(lpTimer);lpTimer=null}if(!movido){movido=true;pushUndo()}const r=pitch.getBoundingClientRect();pp.x=Math.max(3,Math.min(97,(ev.clientX-r.left)/r.width*100));pp.y=Math.max(3,Math.min(97,(ev.clientY-r.top)/r.height*100));el.style.left=pp.x+'%';el.style.top=pp.y+'%';marcarBanquillo(ev.clientX,ev.clientY)};
+  el.onpointerup=ev=>{
+    if(lpTimer){clearTimeout(lpTimer);lpTimer=null}
+    el.onpointermove=null;
+    const alBanquillo=movido&&sobreBanquillo(ev.clientX,ev.clientY);
+    marcarBanquillo(-1,-1);
+    /* Soltar sobre el banquillo saca al jugador del campo. Es el gesto inverso
+       al de colocarlo y ahorra tener que cambiar a la goma para una operación
+       que se hace continuamente al preparar un once.
+       Sin pushUndo: el primer movimiento del arrastre ya guardó la foto, y
+       repetirlo obligaría a deshacer dos veces para recuperar al jugador. */
+    if(alBanquillo){removePlayerFromPitch(id,team,true);showToast('Fuera del campo');return}
+    persist();renderBench();renderRivalBench()
+  }}
+function sobreBanquillo(cx,cy){
+  const b=$('#benchPanel');if(!b)return false;
+  const r=b.getBoundingClientRect();
+  return cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom
+}
+function marcarBanquillo(cx,cy){
+  const b=$('#benchPanel');if(!b)return;
+  b.classList.toggle('soltar-aqui',sobreBanquillo(cx,cy))
+}
 function completeSubstitution(inId){const t=tactic(),team=substitutionPending.team,list=team==='rival'?t.opponentPlaced:t.placed,spot=list.find(x=>x.playerId===substitutionPending.id);if(!spot)return;pushUndo();const outId=spot.playerId;spot.playerId=inId;t.substitutions.push({x:spot.x,y:spot.y,team,outId,inId});if(state.live.started&&!state.live.finished&&team==='own')crearEvento({tipo:'sub',ambito:'sistema',team,outId,inId});substitutionPending=null;persist();renderBoard();afterAction();showToast('Cambio realizado')}
-function removePlayerFromPitch(id,team){pushUndo();const t=tactic(),key=team+':'+id;if(team==='rival')t.opponentPlaced=t.opponentPlaced.filter(x=>x.playerId!==id);else t.placed=t.placed.filter(x=>x.playerId!==id);t.highlighted=t.highlighted.filter(x=>x!==key);persist();renderBoard();afterAction()}
+function removePlayerFromPitch(id,team,sinUndo){if(!sinUndo)pushUndo();const t=tactic(),key=team+':'+id;if(team==='rival')t.opponentPlaced=t.opponentPlaced.filter(x=>x.playerId!==id);else t.placed=t.placed.filter(x=>x.playerId!==id);t.highlighted=t.highlighted.filter(x=>x!==key);persist();renderBoard();afterAction()}
 function renderArrows(){const t=tactic();$('#arrows').innerHTML=t.arrows.map(a=>a.curve?`<path d="M ${a.x1} ${a.y1} Q ${a.cx} ${a.cy} ${a.x2} ${a.y2}"/>`:`<path d="M ${a.x1} ${a.y1} L ${a.x2} ${a.y2}"/>`).join('');$('#graphics').innerHTML=t.graphics.map(g=>g.type==='circle'?`<circle cx="${g.cx}" cy="${g.cy}" r="${g.r}"/>`:g.type==='rect'?`<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="10"/>`:`<path d="${g.d}"/>`).join('');$('#textLayer').innerHTML=t.labels.map((l,i)=>`<span class="pitch-text" data-label="${i}" style="left:${l.x}%;top:${l.y}%">${esc(l.text)}</span>`).join('');$('#substitutionLayer').innerHTML=t.substitutions.map((s,i)=>`<span class="sub-badge" data-sub="${i}" style="left:${s.x}%;top:${s.y}%"><i class="in">↗</i><i class="out">↙</i></span>`).join('');$$('[data-label]').forEach(x=>x.onclick=()=>{if(tool==='remove'){pushUndo();t.labels.splice(+x.dataset.label,1);persist();renderArrows();afterAction()}});$$('[data-sub]').forEach(x=>x.onclick=()=>{if(tool==='remove'){pushUndo();t.substitutions.splice(+x.dataset.sub,1);persist();renderArrows();afterAction()}})}
 $('#pitch').onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(!['arrow','curve','circle','rect','pen','text','remove'].includes(tool)||e.target.closest('.pitch-player,.pitch-text,.sub-badge'))return;const r=$('#pitch').getBoundingClientRect(),x=(e.clientX-r.left)/r.width*1000,y=(e.clientY-r.top)/r.height*1400;if(tool==='remove'){removeNearestAnnotation(x,y);return}if(tool==='text'){const value=prompt('Escribe la indicación:');if(value){pushUndo();tactic().labels.push({text:value.slice(0,60),x:x/10,y:y/14});persist();renderArrows();afterAction()}return}drawing={x1:x,y1:y,x2:x,y2:y,points:[[x,y]]};$('#pitch').setPointerCapture(e.pointerId)};
 function removeNearestAnnotation(x,y){const t=tactic(),candidates=[];t.arrows.forEach((a,i)=>candidates.push({kind:'arrows',i,d:Math.hypot(x-(a.x1+a.x2)/2,y-(a.y1+a.y2)/2)}));t.graphics.forEach((g,i)=>{let gx=g.cx,gy=g.cy;if(g.type==='pen'){const nums=(g.d.match(/[\d.]+/g)||[]).map(Number);gx=nums[nums.length-2];gy=nums[nums.length-1]}else if(g.type==='rect'){gx=g.x+g.w/2;gy=g.y+g.h/2}candidates.push({kind:'graphics',i,d:Math.hypot(x-gx,y-gy)})});t.labels.forEach((l,i)=>candidates.push({kind:'labels',i,d:Math.hypot(x-l.x*10,y-l.y*14)}));t.substitutions.forEach((s,i)=>candidates.push({kind:'substitutions',i,d:Math.hypot(x-s.x*10,y-s.y*14)}));const nearest=candidates.sort((a,b)=>a.d-b.d)[0];if(nearest&&nearest.d<180){pushUndo();t[nearest.kind].splice(nearest.i,1);persist();renderArrows();afterAction()}}
@@ -371,7 +551,11 @@ $('#clearAll').onclick=()=>{
   pushUndo();const t=tactic();CAMPO_KEYS.forEach(k=>t[k]=[]);
   substitutionPending=null;persist();renderBoard();showToast('Campo vacío')
 };
-$('#formation').onchange=e=>{pushUndo();const t=tactic();t.formation=e.target.value;const spots=formations[t.formation];if(spots)t.placed.forEach((p,i)=>{if(spots[i]){p.x=spots[i][0];p.y=spots[i][1]}});persist();renderPitch()};
+/* Al cambiar de formación cada jugador viaja a su MISMO hueco en el dibujo
+   nuevo, no al que le toque por orden de la lista: así el central sigue de
+   central. Los huecos son once en todas las formaciones, de modo que ninguno se
+   queda sin sitio. */
+$('#formation').onchange=e=>{pushUndo();const t=tactic();t.formation=e.target.value;asignarHuecos(t);const spots=formations[t.formation];if(spots)t.placed.forEach(p=>{const s=spots[p.slot];if(s){p.x=s[0];p.y=s[1]}});persist();renderPitch()};
 function renderBoard(){renderTabs();renderBench();renderRivalBench();renderToolbar();renderPitch();renderScoreboard();renderLive()}
 function renderSquad(){const q=$('#playerSearch').value.toLowerCase(),filter=$('#statusFilter').value;const list=state.players.filter(p=>(filter==='all'||p.status===filter)&&(p.name+' '+p.position).toLowerCase().includes(q));$('#playerGrid').innerHTML=list.map(p=>`<article class="player-card"><div class="player-card-top"><div class="card-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><span class="role">${esc(p.position)}</span><br><span class="status-tag"><i class="${p.status}"></i>${statusText[p.status]}</span></div><span class="number">${esc(p.number||'—')}</span></div><p class="notes">${esc(p.notes)||'Sin notas añadidas.'}</p><div class="card-actions"><button data-edit="${p.id}">Editar ficha</button><button class="delete" data-delete="${p.id}">×</button></div></article>`).join('')||'<p>No se encontraron jugadores.</p>';$('#totalPlayers').textContent=state.players.length;$('#fitPlayers').textContent=state.players.filter(p=>p.status==='available').length;$('#doubtPlayers').textContent=state.players.filter(p=>p.status==='doubt').length;$('#outPlayers').textContent=state.players.filter(p=>['injured','suspended'].includes(p.status)).length;$('#squadCount').textContent=state.players.length;$$('[data-edit]').forEach(b=>b.onclick=()=>openPlayer(b.dataset.edit));$$('[data-delete]').forEach(b=>b.onclick=()=>{if(confirm('¿Eliminar este jugador de la plantilla?')){const did=b.dataset.delete;state.players=state.players.filter(p=>p.id!==did);state.tactics.forEach(t=>t.placed=t.placed.filter(x=>x.playerId!==did));state.match.goals=state.match.goals.filter(x=>!(x.team==='own'&&x.scorerId===did));state.match.goals.forEach(x=>{if(x.team==='own'&&x.assistId===did)x.assistId=null});state.trainings.forEach(t=>t.stations.forEach(s=>{s.playerIds=s.playerIds.filter(pid=>pid!==did)}));persist();renderAll()}})}
 $('#playerSearch').oninput=renderSquad;$('#statusFilter').onchange=renderSquad;$('#newPlayer').onclick=()=>openPlayer();
