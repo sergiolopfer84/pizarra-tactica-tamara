@@ -81,9 +81,39 @@ body.colocando .pitch-slot{border-color:#ffffffd9;background:#00000042}
 .sq-obs{color:#7c7686;font-size:11px;max-width:340px}
 .sq-obs i{color:#c4bfce;font-style:normal}
 
+/* ===== Formulario de la ficha del jugador =====
+   La rejilla de .form-grid es de dos columnas, 1fr y 90 px, y para "Equipo
+   local + Goles" del resto de formularios está bien. Aquí no: los 90 px eran
+   para el dorsal, pero debajo caían "Posición" y "Estado", y a Estado le tocaba
+   esa misma columna estrecha. El desplegable salía cortado —"Dispo…"— y la
+   etiqueta partida en dos líneas.
+   Seis columnas para que cada campo pida lo suyo: nombre 4 y dorsal 2 arriba,
+   posición y estado a mitades debajo. Va con #playerForm delante para ganarle
+   en especificidad a la regla de móvil de .form-grid sin tocar los otros dos
+   formularios, que siguen con la rejilla de siempre. */
+#playerForm .form-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+#playerForm .fg-nombre{grid-column:span 4}
+#playerForm .fg-dorsal{grid-column:span 2}
+#playerForm .fg-pos,#playerForm .fg-estado{grid-column:span 3}
+@media(max-width:680px){
+  /* En móvil no caben tres campos por fila: dorsal y posición comparten fila y
+     el estado se queda con la suya entera, en vez de dejar un hueco muerto. */
+  #playerForm .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #playerForm .fg-nombre,#playerForm .fg-estado{grid-column:span 2}
+  #playerForm .fg-dorsal,#playerForm .fg-pos{grid-column:span 1}
+}
+/* Sin esto, en una pantalla baja —un portátil, o el móvil en horizontal— el
+   diálogo se corta por abajo y "Guardar jugador" queda fuera de alcance, sin
+   forma de llegar a él. El navegador ya limita el alto de un <dialog>; lo que
+   faltaba era poder rodarlo. dvh además descuenta la barra del navegador. */
+dialog{max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overflow:auto}
+
 /* Ficha del jugador en modo lectura */
 .pc-body{padding:20px 24px}
 .pc-top{display:flex;gap:16px;align-items:center}
+/* El envoltorio es hijo flex: sin esto lo encoge la fila de datos y la foto
+   sale ovalada. */
+#pcAvatar{flex:none}
 .pc-avatar{width:64px;height:64px;font-size:18px}
 .pc-datos{display:flex;gap:22px;flex-wrap:wrap}
 .pc-datos small{display:block;font-size:8px;font-weight:700;letter-spacing:.12em;color:#9a94a5;text-transform:uppercase}
