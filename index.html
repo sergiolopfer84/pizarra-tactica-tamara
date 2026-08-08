@@ -205,7 +205,9 @@
       <section id="squadView" class="view">
         <div class="squad-toolbar"><div class="search">⌕ <input id="playerSearch" placeholder="Buscar por nombre o posición…" /></div><select id="statusFilter"><option value="all">Todos los estados</option><option value="available">Disponibles</option><option value="doubt">Dudas</option><option value="injured">Lesionados</option><option value="suspended">Sancionados</option></select><button class="btn primary" id="newPlayer">＋ Añadir jugador</button></div>
         <div class="squad-summary"><div><span class="summary-icon purple">♙</span><p><b id="totalPlayers">0</b><small>Jugadores</small></p></div><div><span class="summary-icon green">✓</span><p><b id="fitPlayers">0</b><small>Disponibles</small></p></div><div><span class="summary-icon amber">!</span><p><b id="doubtPlayers">0</b><small>En duda</small></p></div><div><span class="summary-icon red">＋</span><p><b id="outPlayers">0</b><small>Bajas</small></p></div></div>
-        <div id="playerGrid" class="player-grid"></div>
+        <!-- Tabla, no rejilla de tarjetas: la plantilla se lee de arriba abajo
+             agrupada por puesto, y cada fila entera abre la ficha. -->
+        <div id="playerGrid" class="squad-table-wrap"></div>
       </section>
       <section id="trainingView" class="view">
         <div class="squad-toolbar"><div class="search">⌕ <input id="trainingSearch" placeholder="Buscar sesión, estación o ejercicio…" /></div><button class="btn primary" id="newTraining">＋ Nuevo entrenamiento</button></div>
@@ -256,6 +258,32 @@
       </section>
     </main>
   </div>
+
+  <!-- Ficha del jugador: lo que abre un toque en su fila de la plantilla.
+       Es de lectura, y editar es un paso aparte y voluntario: la mayoría de las
+       veces se entra a mirar el dorsal o una observación, no a cambiar nada. -->
+  <dialog id="playerCardDialog">
+    <div class="modal-head">
+      <div><span class="eyebrow" id="pcPuesto">JUGADOR</span><h2 id="pcNombre">Jugador</h2></div>
+      <button class="close-card" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <div class="pc-body">
+      <div class="pc-top">
+        <div id="pcAvatar"></div>
+        <div class="pc-datos">
+          <div><small>Dorsal</small><b id="pcDorsal">—</b></div>
+          <div><small>Posición</small><b id="pcPosicion">—</b></div>
+          <div><small>Estado</small><b id="pcEstado" class="pc-estado">—</b></div>
+        </div>
+      </div>
+      <div class="pc-notas"><small>Observaciones</small><p id="pcNotas">Sin observaciones.</p></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary pc-borrar" type="button" id="pcBorrar">Eliminar</button>
+      <button class="btn secondary close-card" type="button">Cerrar</button>
+      <button class="btn primary" type="button" id="pcEditar">Editar ficha</button>
+    </div>
+  </dialog>
 
   <dialog id="playerDialog">
     <form method="dialog" id="playerForm">

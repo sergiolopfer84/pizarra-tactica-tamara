@@ -51,6 +51,59 @@ body.colocando .pitch-slot{border-color:#ffffffd9;background:#00000042}
    una invitación a colocar a nadie. */
 @media print{#pitchSlots{display:none!important}}
 
+/* ===== Plantilla en tabla =====
+   Agrupada por puesto y ordenada por dorsal. La fila entera abre la ficha, así
+   que se resalta al pasar por encima para que se vea que es pulsable. */
+.squad-table-wrap{background:white;border:1px solid var(--line);border-radius:11px;overflow-x:auto}
+.squad-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+.squad-table th,.squad-table td{padding:11px 13px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+.squad-table thead th{background:#faf9fb;font:800 9px Manrope,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8a8496;white-space:nowrap}
+/* Cabecera de grupo: es la que sustituye al "buscar la tarjeta con la vista". */
+.squad-table .sq-grupo th{background:#f3f0fa;color:var(--purple);font:800 10px Manrope,sans-serif;
+                          letter-spacing:.1em;text-transform:uppercase;padding:9px 13px}
+.squad-table .sq-grupo b{color:#9d95b5;margin-left:6px}
+.squad-table tbody tr[data-player]{cursor:pointer}
+.squad-table tbody tr[data-player]:hover td,.squad-table tbody tr[data-player]:hover th{background:#faf8ff}
+.squad-table tbody tr[data-player]:focus-visible{outline:2px solid var(--purple);outline-offset:-2px}
+.sq-num{font:800 15px Manrope,sans-serif;color:var(--purple);width:64px;text-align:center!important}
+.sq-nombre{font-weight:700;color:var(--ink);white-space:nowrap}
+.sq-estado{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;white-space:nowrap}
+.sq-estado i{width:8px;height:8px;border-radius:50%;flex:none}
+.sq-estado.ok{color:#12784f}   .sq-estado.ok i{background:var(--green)}
+.sq-estado.duda{color:#9a6106} .sq-estado.duda i{background:var(--amber)}
+.sq-estado.no{color:#a52a34}   .sq-estado.no i{background:var(--red)}
+/* La posición se edita en la propia fila: es el campo que más se cambia y abrir
+   el formulario entero para tocar un desplegable era todo el viaje para nada. */
+.sq-pos{border:1px solid transparent;border-radius:7px;background:transparent;padding:5px 7px;
+        font:600 11px 'DM Sans',sans-serif;color:#4b4459;cursor:pointer;max-width:140px}
+.sq-pos:hover{border-color:#dedbe5;background:white}
+.sq-pos:focus{border-color:var(--purple);background:white;outline:none}
+.sq-obs{color:#7c7686;font-size:11px;max-width:340px}
+.sq-obs i{color:#c4bfce;font-style:normal}
+
+/* Ficha del jugador en modo lectura */
+.pc-body{padding:20px 24px}
+.pc-top{display:flex;gap:16px;align-items:center}
+.pc-avatar{width:64px;height:64px;font-size:18px}
+.pc-datos{display:flex;gap:22px;flex-wrap:wrap}
+.pc-datos small{display:block;font-size:8px;font-weight:700;letter-spacing:.12em;color:#9a94a5;text-transform:uppercase}
+.pc-datos b{font:800 15px Manrope,sans-serif;color:var(--ink)}
+.pc-estado.ok{color:#12784f}.pc-estado.duda{color:#9a6106}.pc-estado.no{color:#a52a34}
+.pc-notas{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.pc-notas small{display:block;font-size:8px;font-weight:700;letter-spacing:.12em;color:#9a94a5;text-transform:uppercase;margin-bottom:5px}
+.pc-notas p{margin:0;font-size:12px;color:#5d5769;line-height:1.5;white-space:pre-wrap}
+.close-card{border:0;background:none;font-size:22px;cursor:pointer}
+.modal-actions .close-card{font-size:12px}
+.pc-borrar{color:var(--red)!important;margin-right:auto}
+@media(max-width:680px){
+  /* En móvil la tabla sí desborda: se deja rodar en horizontal con el nombre
+     fijo, igual que las tablas del informe. */
+  .squad-table{font-size:11px}
+  .squad-table th,.squad-table td{padding:9px 10px}
+  .sq-obs{max-width:200px}
+  .pc-top{flex-direction:column;align-items:flex-start}
+}
+
 /* Acceso con clave y sincronización */
 .auth-overlay{position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,#21065f,#31098c 55%,#4b16b7);display:grid;place-items:center;padding:20px}
 .auth-overlay.hidden{display:none}

@@ -557,7 +557,103 @@ $('#clearAll').onclick=()=>{
    queda sin sitio. */
 $('#formation').onchange=e=>{pushUndo();const t=tactic();t.formation=e.target.value;asignarHuecos(t);const spots=formations[t.formation];if(spots)t.placed.forEach(p=>{const s=spots[p.slot];if(s){p.x=s[0];p.y=s[1]}});persist();renderPitch()};
 function renderBoard(){renderTabs();renderBench();renderRivalBench();renderToolbar();renderPitch();renderScoreboard();renderLive()}
-function renderSquad(){const q=$('#playerSearch').value.toLowerCase(),filter=$('#statusFilter').value;const list=state.players.filter(p=>(filter==='all'||p.status===filter)&&(p.name+' '+p.position).toLowerCase().includes(q));$('#playerGrid').innerHTML=list.map(p=>`<article class="player-card"><div class="player-card-top"><div class="card-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><span class="role">${esc(p.position)}</span><br><span class="status-tag"><i class="${p.status}"></i>${statusText[p.status]}</span></div><span class="number">${esc(p.number||'—')}</span></div><p class="notes">${esc(p.notes)||'Sin notas añadidas.'}</p><div class="card-actions"><button data-edit="${p.id}">Editar ficha</button><button class="delete" data-delete="${p.id}">×</button></div></article>`).join('')||'<p>No se encontraron jugadores.</p>';$('#totalPlayers').textContent=state.players.length;$('#fitPlayers').textContent=state.players.filter(p=>p.status==='available').length;$('#doubtPlayers').textContent=state.players.filter(p=>p.status==='doubt').length;$('#outPlayers').textContent=state.players.filter(p=>['injured','suspended'].includes(p.status)).length;$('#squadCount').textContent=state.players.length;$$('[data-edit]').forEach(b=>b.onclick=()=>openPlayer(b.dataset.edit));$$('[data-delete]').forEach(b=>b.onclick=()=>{if(confirm('¿Eliminar este jugador de la plantilla?')){const did=b.dataset.delete;state.players=state.players.filter(p=>p.id!==did);state.tactics.forEach(t=>t.placed=t.placed.filter(x=>x.playerId!==did));state.match.goals=state.match.goals.filter(x=>!(x.team==='own'&&x.scorerId===did));state.match.goals.forEach(x=>{if(x.team==='own'&&x.assistId===did)x.assistId=null});state.trainings.forEach(t=>t.stations.forEach(s=>{s.playerIds=s.playerIds.filter(pid=>pid!==did)}));persist();renderAll()}})}
+/* ===== Plantilla: una tabla, no una rejilla de tarjetas =====
+   Con veinte fichas, la rejilla obligaba a barrer la pantalla en zigzag para
+   encontrar a alguien y a entrar en el formulario entero solo para mirar una
+   observación. La tabla se lee de arriba abajo, agrupada por puesto y ordenada
+   por dorsal dentro de cada grupo, que es como el entrenador tiene la plantilla
+   en la cabeza.
+   Editar la posición se hace aquí mismo, en la propia fila: es el único campo
+   que se toca a menudo (un lateral que pasa a central) y abrir un formulario
+   para cambiar un desplegable era todo el viaje para nada. */
+const POSICIONES=['Portero','Defensa','Lateral','Mediocentro','Extremo','Delantero'];
+const POSICION_GRUPO={Portero:'Porteros',Defensa:'Defensas',Lateral:'Laterales',
+  Mediocentro:'Mediocentros',Extremo:'Extremos',Delantero:'Delanteros'};
+/* Verde disponible, naranja duda, rojo no disponible. Lesionado y sancionado
+   comparten el rojo porque para plantear el once son lo mismo —no está—, pero
+   cada uno conserva su palabra: el motivo sí importa a la hora de la charla. */
+const ESTADO_COLOR={available:'ok',doubt:'duda',injured:'no',suspended:'no'};
+const posicionDe=p=>POSICIONES.includes(p.position)?p.position:'Otros';
+
+function borrarJugador(did){
+  state.players=state.players.filter(p=>p.id!==did);
+  state.tactics.forEach(t=>t.placed=t.placed.filter(x=>x.playerId!==did));
+  state.match.goals=state.match.goals.filter(x=>!(x.team==='own'&&x.scorerId===did));
+  state.match.goals.forEach(x=>{if(x.team==='own'&&x.assistId===did)x.assistId=null});
+  state.trainings.forEach(t=>t.stations.forEach(s=>{s.playerIds=s.playerIds.filter(pid=>pid!==did)}));
+  persist();renderAll()
+}
+
+function filaJugadorHTML(p){
+  const obs=(p.notes||'').trim();
+  return `<tr data-player="${p.id}" tabindex="0">
+    <td class="sq-num">${esc(p.number||'—')}</td>
+    <td><span class="sq-estado ${ESTADO_COLOR[p.status]||'ok'}"><i></i>${statusText[p.status]||'—'}</span></td>
+    <th scope="row" class="sq-nombre">${esc(p.name)}</th>
+    <td class="sq-pos-celda"><select class="sq-pos" data-pos="${p.id}" aria-label="Posición de ${esc(p.name)}">${
+      POSICIONES.map(x=>`<option${x===p.position?' selected':''}>${x}</option>`).join('')
+    }${POSICIONES.includes(p.position)?'':`<option selected>${esc(p.position)}</option>`}</select></td>
+    <td class="sq-obs">${obs?esc(obs):'<i>—</i>'}</td>
+  </tr>`
+}
+
+function renderSquad(){
+  const q=$('#playerSearch').value.toLowerCase(),filter=$('#statusFilter').value;
+  const list=state.players.filter(p=>(filter==='all'||p.status===filter)&&(p.name+' '+p.position).toLowerCase().includes(q));
+  const grupos=POSICIONES.concat('Otros').map(g=>({g,lista:list.filter(p=>posicionDe(p)===g).sort(byNumber)})).filter(x=>x.lista.length);
+  $('#playerGrid').innerHTML=grupos.length
+    ? `<table class="squad-table">
+        <thead><tr><th scope="col">Dorsal</th><th scope="col">Estado</th><th scope="col">Nombre</th><th scope="col">Posición</th><th scope="col">Observaciones</th></tr></thead>
+        <tbody>${grupos.map(({g,lista})=>
+          `<tr class="sq-grupo"><th colspan="5" scope="colgroup">${esc(POSICION_GRUPO[g]||g)} <b>${lista.length}</b></th></tr>`
+          +lista.map(filaJugadorHTML).join('')).join('')}</tbody>
+      </table>`
+    : '<p class="rep-hint">No se encontraron jugadores.</p>';
+  $('#totalPlayers').textContent=state.players.length;
+  $('#fitPlayers').textContent=state.players.filter(p=>p.status==='available').length;
+  $('#doubtPlayers').textContent=state.players.filter(p=>p.status==='doubt').length;
+  $('#outPlayers').textContent=state.players.filter(p=>['injured','suspended'].includes(p.status)).length;
+  $('#squadCount').textContent=state.players.length;
+  /* El desplegable se para aquí: sin esto, elegir una posición abriría además la
+     ficha, porque el clic sigue subiendo hasta la fila. */
+  $('#playerGrid').querySelectorAll('.sq-pos').forEach(sel=>{
+    sel.onclick=e=>e.stopPropagation();
+    sel.onkeydown=e=>e.stopPropagation();
+    sel.onchange=e=>{
+      const p=state.players.find(x=>x.id===sel.dataset.pos);if(!p)return;
+      p.position=e.target.value;persist();renderAll()   // renderAll: la fila cambia de grupo
+    }
+  });
+  $('#playerGrid').querySelectorAll('[data-player]').forEach(tr=>{
+    tr.onclick=()=>openPlayerCard(tr.dataset.player);
+    tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openPlayerCard(tr.dataset.player)}}
+  })
+}
+
+/* Ficha en modo lectura. Editar es un paso más y voluntario: casi siempre se
+   entra a mirar un dorsal o una observación, no a cambiar nada. */
+let fichaAbierta=null;
+function openPlayerCard(id){
+  const p=state.players.find(x=>x.id===id);if(!p)return;
+  fichaAbierta=id;
+  $('#pcNombre').textContent=p.name;
+  $('#pcPuesto').textContent=(POSICION_GRUPO[posicionDe(p)]||'JUGADOR').toUpperCase();
+  $('#pcDorsal').textContent=p.number||'—';
+  $('#pcPosicion').textContent=p.position||'—';
+  const est=$('#pcEstado');
+  est.textContent=statusText[p.status]||'—';
+  est.className='pc-estado '+(ESTADO_COLOR[p.status]||'ok');
+  $('#pcAvatar').innerHTML=`<div class="card-avatar pc-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</div>`;
+  $('#pcNotas').textContent=(p.notes||'').trim()||'Sin observaciones.';
+  $('#playerCardDialog').showModal()
+}
+$$('.close-card').forEach(b=>b.onclick=()=>$('#playerCardDialog').close());
+$('#pcEditar').onclick=()=>{const id=fichaAbierta;$('#playerCardDialog').close();openPlayer(id)};
+$('#pcBorrar').onclick=()=>{
+  const id=fichaAbierta;
+  if(!confirm('¿Eliminar este jugador de la plantilla?'))return;
+  $('#playerCardDialog').close();borrarJugador(id)
+};
 $('#playerSearch').oninput=renderSquad;$('#statusFilter').onchange=renderSquad;$('#newPlayer').onclick=()=>openPlayer();
 function renderRivals(){const q=$('#rivalSearch').value.toLowerCase();$('#rivalTeamName').textContent=state.match.opponent||'Equipo rival';const list=state.rivals.filter(p=>(p.name+' '+p.position).toLowerCase().includes(q));$('#rivalGrid').innerHTML=list.map(p=>`<article class="player-card"><div class="player-card-top"><div class="card-avatar" ${avatarStyle(p)}>${p.photo?'':esc(initials(p.name))}</div><div><h3>${esc(p.name)}</h3><span class="role">${esc(p.position)}</span></div><span class="number">${esc(p.number||'—')}</span></div><p class="notes">${esc(p.notes)||'Sin notas de scouting.'}</p><div class="card-actions"><button data-rival-edit="${p.id}">Editar ficha</button><button class="delete" data-rival-delete="${p.id}">×</button></div></article>`).join('')||'<p>No se encontraron jugadores rivales.</p>';$('#rivalCount').textContent=state.rivals.length;$$('[data-rival-edit]').forEach(b=>b.onclick=()=>openPlayer(b.dataset.rivalEdit,'rival'));$$('[data-rival-delete]').forEach(b=>b.onclick=()=>{if(confirm('¿Eliminar este jugador rival?')){const did=b.dataset.rivalDelete;state.rivals=state.rivals.filter(p=>p.id!==did);state.tactics.forEach(t=>t.opponentPlaced=t.opponentPlaced.filter(x=>x.playerId!==did));state.match.goals=state.match.goals.filter(x=>!(x.team==='rival'&&x.scorerId===did));state.match.goals.forEach(x=>{if(x.team==='rival'&&x.assistId===did)x.assistId=null});persist();renderAll()}})}
 $('#rivalSearch').oninput=renderRivals;$('#newRival').onclick=()=>openPlayer(null,'rival');
